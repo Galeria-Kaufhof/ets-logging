@@ -1,6 +1,6 @@
 package de.kaufhof.ets.logging
 
-
+/*
 trait SLF4J {
   import org.slf4j.LoggerFactory
   val logger = LoggerFactory.getLogger("foo")
@@ -85,3 +85,4 @@ trait
 class Main {
 
 }
+*/

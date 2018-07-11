@@ -2,7 +2,7 @@ This library is currently in the prototyping phase.
 Don't expect working code and don't even try to use it!
 
 
-#`ets-logging-apisandbox` 
+# `ets-logging-apisandbox` 
 This is the place to lay down the target api.
 Furthermore, it is used to test some api aspects.
 Aspects include: General API Look And Feel, Type inference, Performance, Physical Module Layout, Example Configuration.

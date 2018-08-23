@@ -4,7 +4,6 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 import de.kaufhof.ets.logging.stdout.Api._
-import de.kaufhof.ets.logging.stdout.StringLogConfig.Encoder
 import net.logstash.logback.marker.Markers
 import play.api.libs.json._
 import org.slf4j
@@ -329,7 +328,7 @@ object Api {
     override def encodeString(string: String): Encoded = string
   }
 
-  trait JsValueStringEncoders extends DefaultEncoders[JsValue] {
+  trait DefaultJsValueEncoders extends DefaultEncoders[JsValue] {
     implicit class EncoderOps(e: Encoder.type) {
       def fromPlayJsonWrites[I: Writes]: Encoder[I] = implicitly[Writes[I]].writes
     }
@@ -359,6 +358,21 @@ object Domain {
   val uuid: UUID = java.util.UUID.fromString("723f03f5-13a6-4e46-bdac-3c66718629df")
 }
 
+trait LogKeysSyntax[E] extends LogPredefKeys[E] with LogTypeDefinitions[E] with LogKeySyntax[E] with LogEncoderSyntax[E] with ClassNameExtractor
+
+object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
+  import Domain._
+  val Logger: Key[Class[_]] = Key[Class[_]]("logger", Encoder[Class[_]].by(getClassName))
+  val Level: Key[Level] = Key[Level]("level", Encoder.fromToString)
+  val Message: Key[String] = Key[String]("msg", Encoder.fromImplicit)
+  val Timestamp: Key[LocalDateTime] = Key[LocalDateTime]("ts", Encoder.fromToString)
+  val VariantId: Key[VariantId] = Key[VariantId]("variantid", Encoder[VariantId].by(_.value))
+  val VariantName: Key[String] = Key[String]("variantname", Encoder.fromImplicit)
+  val SomeUUID: Key[UUID] = Key[UUID]("uuid", Encoder.fromToString)
+  val RandomEncoder: Key[Random] = Key[Random]("randenc", Encoder[Random].by(_.nextInt(100)))
+  val RandomEval: Key[Int] = Key[Int]("randeval", Encoder.fromToString)
+}
+
 object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultStringEncoders {
   // TODO: try to avoid self type here
   self =>
@@ -370,18 +384,7 @@ object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultSt
     "Asd" -> Level.Debug
   )
 
-  object Keys extends PredefKeys {
-    import Domain._
-    val Logger: Key[Class[_]] = Key[Class[_]]("logger", Encoder[Class[_]].by(getClassName))
-    val Level: Key[Level] = Key[Level]("level", Encoder.fromToString)
-    val Message: Key[String] = Key[String]("msg", Encoder.fromImplicit)
-    val Timestamp: Key[LocalDateTime] = Key[LocalDateTime]("ts", Encoder.fromToString)
-    val VariantId: Key[VariantId] = Key[VariantId]("variantid", Encoder[VariantId].by(_.value))
-    val VariantName: Key[String] = Key[String]("variantname", Encoder.fromImplicit)
-    val SomeUUID: Key[UUID] = Key[UUID]("uuid", Encoder.fromToString)
-    val RandomEncoder: Key[Random] = Key[Random]("randenc", Encoder[Random].by(_.nextInt(100)))
-    val RandomEval: Key[Int] = Key[Int]("randeval", Encoder.fromToString)
-  }
+  val Keys: StringKeys.type = StringKeys
 
   // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
   // TODO: it is not so easy my first attempt resulted in intellij being confused about the Keys object
@@ -409,30 +412,31 @@ object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultSt
 }
 
 
-object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with JsValueStringEncoders {
+object JsValueKeys extends LogKeysSyntax[JsValue] with DefaultJsValueEncoders {
+  import Domain._
+  val Logger: Key[Class[_]] = Key[Class[_]]("logger", Encoder[Class[_]].by(getClassName)(stringEncoder))
+  val Level: Key[Level] = Key[Level]("level", Encoder.fromToString)
+  val Message: Key[String] = Key[String]("msg", Encoder.fromImplicit(stringEncoder))
+  val Timestamp: Key[LocalDateTime] = Key[LocalDateTime]("ts", Encoder.fromToString)
+  val VariantId: Key[VariantId] = Key[VariantId]("variantid", Encoder[VariantId].by(_.value)(stringEncoder))
+  val VariantName: Key[String] = Key[String]("variantname", Encoder.fromImplicit(stringEncoder))
+  val SomeUUID: Key[UUID] = Key[UUID]("uuid", Encoder.fromToString)
+  val RandomEncoder: Key[Random] = Key[Random]("randenc", Encoder[Random].by(_.nextInt(100)))
+  val RandomEval: Key[Int] = Key[Int]("randeval", Encoder.fromImplicit)
+}
+
+object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with DefaultJsValueEncoders {
   self =>
 
   override type Combined = JsValue
   override def combiner: EventCombiner = JsValueLogEventCombiner
   override def appender: Appender = SdtoutStringLogAppender.comap(_.toString())
-  override def encodeString(string: String): Encoded = JsString(string)
 
   override val classNameLevels: Map[String, Level] = Map(
     "Asd" -> Level.Debug
   )
 
-  object Keys extends PredefKeys {
-    import Domain._
-    val Logger: Key[Class[_]] = Key[Class[_]]("logger", Encoder[Class[_]].by(getClassName)(stringEncoder))
-    val Level: Key[Level] = Key[Level]("level", Encoder.fromToString)
-    val Message: Key[String] = Key[String]("msg", Encoder.fromImplicit(stringEncoder))
-    val Timestamp: Key[LocalDateTime] = Key[LocalDateTime]("ts", Encoder.fromToString)
-    val VariantId: Key[VariantId] = Key[VariantId]("variantid", Encoder[VariantId].by(_.value)(stringEncoder))
-    val VariantName: Key[String] = Key[String]("variantname", Encoder.fromImplicit(stringEncoder))
-    val SomeUUID: Key[UUID] = Key[UUID]("uuid", Encoder.fromToString)
-    val RandomEncoder: Key[Random] = Key[Random]("randenc", Encoder[Random].by(_.nextInt(100)))
-    val RandomEval: Key[Int] = Key[Int]("randeval", Encoder.fromImplicit)
-  }
+  val Keys: JsValueKeys.type = JsValueKeys
 
   // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
   override def predefKeys: PredefKeys = Keys

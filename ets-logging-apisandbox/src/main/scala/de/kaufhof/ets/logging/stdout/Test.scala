@@ -97,7 +97,7 @@ object Api {
 
   type LogEvent[E] = Map[LogKey[_, E], LogPrimitive[_, E]]
 
-  trait LogEventCombiner[E, C] extends LogTypeDefinitions[E] with LogCombinedTypeDefinition[C]{
+  trait LogEventCombiner[E, C] extends LogTypeDefinitions[E] with LogCombinedTypeDefinition[C] {
     def combine(e: Event): Combined
   }
   trait PairLogEventCombiner[E, C] extends LogEventCombiner[E, C] with LogCombinedTypeDefinition[C] {
@@ -145,7 +145,11 @@ object Api {
   trait LogEventFilter[E] {
     def forwards(event: LogEvent[E]): Boolean
   }
-  trait ClassLevelLogEventFilter[E] extends LogEventFilter[E] with ClassNameExtractor with PredefKeysInstance[E] with LogTypeDefinitions[E] {
+  trait ClassLevelLogEventFilter[E]
+      extends LogEventFilter[E]
+      with ClassNameExtractor
+      with PredefKeysInstance[E]
+      with LogTypeDefinitions[E] {
     def rootLevel: Level = Level.Info
     def classNameLevels: Map[String, Level] = Map.empty
 
@@ -180,7 +184,10 @@ object Api {
   trait LogAttributeGatherer[E] {
     def gatherGlobal: Seq[LogAttribute[E]]
   }
-  trait DefaultAttributeGatherer[E] extends LogTypeDefinitions[E] with LogAttributeGatherer[E] with PredefKeysInstance[E] {
+  trait DefaultAttributeGatherer[E]
+      extends LogTypeDefinitions[E]
+      with LogAttributeGatherer[E]
+      with PredefKeysInstance[E] {
     override def gatherGlobal: Seq[Attribute] = Seq(
       predefKeys.Timestamp ~> LocalDateTime.now()
     )
@@ -189,7 +196,7 @@ object Api {
   trait LogEventOps[E] extends LogTypeDefinitions[E] {
     private def primsToEvent(prims: Prims): Event = prims.map(p => (p.key, p)).toMap
     def fromAttributes(attributes: Seq[Attribute]): Event = primsToEvent(attributesToPrims(attributes))
-    def aggregate(acc:Event, next: Event): Event = acc ++ next
+    def aggregate(acc: Event, next: Event): Event = acc ++ next
     private def attributesToPrims(attributes: Seq[Attribute]): Prims = {
       val zero: Prims = Seq.empty
       attributes.foldLeft(zero) { (acc, attr) =>
@@ -205,7 +212,7 @@ object Api {
     def process(attributes: Seq[LogAttribute[E]]): O
   }
   trait AbstractLogAttributeProcessor[E, O]
-    extends LogAttributeProcessor[E, O]
+      extends LogAttributeProcessor[E, O]
       with LogTypeDefinitionsExt[E, O]
       with LogEventFilter[E]
       with LogAttributeGatherer[E] {
@@ -249,13 +256,17 @@ object Api {
     def fromToString[A](implicit e: Encoder[String]): Encoder[A] = apply[A].by[String](_.toString)
   }
 
-  trait LogKeySyntax[E] extends LogTypeDefinitions[E]{
-
+  trait LogKeySyntax[E] extends LogTypeDefinitions[E] {
     object Key {
-      def apply[I](id: String, encoder: Encoder[I]): Key[I] = LogKey(id, encoder)
+//      def apply[I](id: String, encoder: Encoder[I]): Key[I] = LogKey(id, encoder)
+      def apply(id: String): KeyOps = new KeyOps(id)
+    }
+    class KeyOps(id: String) {
+      def withExplicit[I](encoder: Encoder[I]): Key[I] = LogKey(id, encoder)
+      def withImplicitEncoder[I](implicit encoder: Encoder[I]): Key[I] = LogKey(id, encoder)
     }
     object Decomposed {
-      def apply[I](primitives: Primitive[_]*): Decomposed[I] = LogDecomposed(primitives :_*)
+      def apply[I](primitives: Primitive[_]*): Decomposed[I] = LogDecomposed(primitives: _*)
     }
   }
 
@@ -300,7 +311,10 @@ object Api {
     }
   }
 
-  trait DefaultLoggerFactory[E, O] extends LoggerFactory[E, O] with PredefKeysInstance[E] with LogAttributeProcessor[E, O] {
+  trait DefaultLoggerFactory[E, O]
+      extends LoggerFactory[E, O]
+      with PredefKeysInstance[E]
+      with LogAttributeProcessor[E, O] {
     def createLogger(cls: Class[_]): Logger = new Logger {
       private val clsAttr = predefKeys.Logger -> cls
       private def generic(attributes: Seq[LogAttribute[E]]): Output = process(attributes :+ clsAttr)
@@ -314,32 +328,59 @@ object Api {
     }
   }
 
-  trait DefaultEncoders[E] extends LogTypeDefinitions[E] with LogEncoderSyntax[E] {
-    def createUuidEncoder: Encoder[UUID]
+  trait DefaultEncoders[E] extends LogTypeDefinitions[E] with LogEncoderSyntax[E] with ClassNameExtractor {
     def createIntEncoder: Encoder[Int]
+    def createLongEncoder: Encoder[Long]
+    def createFloatEncoder: Encoder[Float]
+    def createDoubleEncoder: Encoder[Double]
+    def createCharEncoder: Encoder[Char]
+    def createByteEncoder: Encoder[Byte]
+    def createUuidEncoder: Encoder[UUID]
+    def createLevelEncoder: Encoder[Level]
+    def createClassEncoder: Encoder[Class[_]] = Encoder[Class[_]].by(getClassName)
 
-    implicit lazy val uuidEncoder: Encoder[UUID] = createUuidEncoder
     implicit lazy val intEncoder: Encoder[Int] = createIntEncoder
+    implicit lazy val longEncoder: Encoder[Long] = createLongEncoder
+    implicit lazy val floatEncoder: Encoder[Float] = createFloatEncoder
+    implicit lazy val doubleEncoder: Encoder[Double] = createDoubleEncoder
+    implicit lazy val charEncoder: Encoder[Char] = createCharEncoder
+    implicit lazy val byteEncoder: Encoder[Byte] = createByteEncoder
+    implicit lazy val uuidEncoder: Encoder[UUID] = createUuidEncoder
+    implicit lazy val levelEncoder: Encoder[Level] = createLevelEncoder
+    implicit lazy val classEncoder: Encoder[Class[_]] = createClassEncoder
   }
 
   trait DefaultStringEncoders extends DefaultEncoders[String] {
-    override def createUuidEncoder: Encoder[UUID] = Encoder.fromToString
-    override def createIntEncoder: Encoder[Int] = Encoder.fromToString
     override def encodeString(string: String): Encoded = string
+    override def createIntEncoder: Encoder[Int] = Encoder.fromToString
+    override def createLongEncoder: Encoder[Long] = Encoder.fromToString
+    override def createFloatEncoder: Encoder[Float] = Encoder.fromToString
+    override def createDoubleEncoder: Encoder[Double] = Encoder.fromToString
+    override def createCharEncoder: Encoder[Char] = Encoder.fromToString
+    override def createByteEncoder: Encoder[Byte] = Encoder.fromToString
+    override def createUuidEncoder: Encoder[UUID] = Encoder.fromToString
+    override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
   }
 
   trait DefaultJsValueEncoders extends DefaultEncoders[JsValue] {
     implicit class EncoderOps(e: Encoder.type) {
-      def fromPlayJsonWrites[I: Writes]: Encoder[I] = implicitly[Writes[I]].writes
+      def fromPlayJsonWrites[I](implicit w: Writes[I]): Encoder[I] = w.writes
     }
-    override def createUuidEncoder: Encoder[UUID] = Encoder.fromToString
-    override def createIntEncoder: Encoder[Int] = Encoder.fromPlayJsonWrites
     override def encodeString(string: String): Encoded = JsString(string)
+
+    override def createIntEncoder: Encoder[Int] = Encoder.fromPlayJsonWrites
+    override def createLongEncoder: Encoder[Long] = Encoder.fromPlayJsonWrites
+    override def createFloatEncoder: Encoder[Float] = Encoder.fromPlayJsonWrites
+    override def createDoubleEncoder: Encoder[Double] = Encoder.fromPlayJsonWrites
+    override def createCharEncoder: Encoder[Char] = Encoder[Char].by(_.toByte)
+    override def createByteEncoder: Encoder[Byte] = Encoder.fromPlayJsonWrites
+    override def createUuidEncoder: Encoder[UUID] = Encoder.fromToString
+    override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
   }
 
   // TODO: specify minimal base trait for any kind of LogConfig
   trait DefaultLogConfig[E, O]
-    extends LogKeySyntax[E]
+      extends LogKeySyntax[E]
       with LoggerFactory[E, O]
       with DefaultLoggerFactory[E, O]
       with AbstractLogAttributeProcessor[E, O]
@@ -358,19 +399,24 @@ object Domain {
   val uuid: UUID = java.util.UUID.fromString("723f03f5-13a6-4e46-bdac-3c66718629df")
 }
 
-trait LogKeysSyntax[E] extends LogPredefKeys[E] with LogTypeDefinitions[E] with LogKeySyntax[E] with LogEncoderSyntax[E] with ClassNameExtractor
+trait LogKeysSyntax[E]
+    extends LogPredefKeys[E]
+    with LogTypeDefinitions[E]
+    with LogKeySyntax[E]
+    with LogEncoderSyntax[E]
+    with ClassNameExtractor
 
 object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
   import Domain._
-  val Logger: Key[Class[_]] = Key[Class[_]]("logger", Encoder[Class[_]].by(getClassName))
-  val Level: Key[Level] = Key[Level]("level", Encoder.fromToString)
-  val Message: Key[String] = Key[String]("msg", Encoder.fromImplicit)
-  val Timestamp: Key[LocalDateTime] = Key[LocalDateTime]("ts", Encoder.fromToString)
-  val VariantId: Key[VariantId] = Key[VariantId]("variantid", Encoder[VariantId].by(_.value))
-  val VariantName: Key[String] = Key[String]("variantname", Encoder.fromImplicit)
-  val SomeUUID: Key[UUID] = Key[UUID]("uuid", Encoder.fromToString)
-  val RandomEncoder: Key[Random] = Key[Random]("randenc", Encoder[Random].by(_.nextInt(100)))
-  val RandomEval: Key[Int] = Key[Int]("randeval", Encoder.fromToString)
+  val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
+  val Level: Key[Level] = Key("level").withImplicitEncoder
+  val Message: Key[String] = Key("msg").withImplicitEncoder
+  val Timestamp: Key[LocalDateTime] = Key("ts").withExplicit(Encoder.fromToString)
+  val VariantId: Key[VariantId] = Key("variantid").withExplicit(Encoder[VariantId].by(_.value))
+  val VariantName: Key[String] = Key("variantname").withImplicitEncoder
+  val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
+  val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
+  val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
 }
 
 object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultStringEncoders {
@@ -404,25 +450,25 @@ object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultSt
   // TODO:     }
   trait Decomposers {
     import Domain._
-    implicit lazy val variantDecomposer: Decomposer[Variant] = variant => Decomposed(
-      Keys.VariantId ~> variant.id,
-      Keys.VariantName ~> variant.name
+    implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
+      Decomposed(
+        Keys.VariantId ~> variant.id,
+        Keys.VariantName ~> variant.name
     )
   }
 }
 
-
 object JsValueKeys extends LogKeysSyntax[JsValue] with DefaultJsValueEncoders {
   import Domain._
-  val Logger: Key[Class[_]] = Key[Class[_]]("logger", Encoder[Class[_]].by(getClassName)(stringEncoder))
-  val Level: Key[Level] = Key[Level]("level", Encoder.fromToString)
-  val Message: Key[String] = Key[String]("msg", Encoder.fromImplicit(stringEncoder))
-  val Timestamp: Key[LocalDateTime] = Key[LocalDateTime]("ts", Encoder.fromToString)
-  val VariantId: Key[VariantId] = Key[VariantId]("variantid", Encoder[VariantId].by(_.value)(stringEncoder))
-  val VariantName: Key[String] = Key[String]("variantname", Encoder.fromImplicit(stringEncoder))
-  val SomeUUID: Key[UUID] = Key[UUID]("uuid", Encoder.fromToString)
-  val RandomEncoder: Key[Random] = Key[Random]("randenc", Encoder[Random].by(_.nextInt(100)))
-  val RandomEval: Key[Int] = Key[Int]("randeval", Encoder.fromImplicit)
+  val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
+  val Level: Key[Level] = Key("level").withImplicitEncoder
+  val Message: Key[String] = Key("msg").withImplicitEncoder
+  val Timestamp: Key[LocalDateTime] = Key("ts").withExplicit(Encoder.fromToString)
+  val VariantId: Key[VariantId] = Key("variantid").withExplicit(Encoder[VariantId].by(_.value))
+  val VariantName: Key[String] = Key("variantname").withImplicitEncoder
+  val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
+  val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
+  val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
 }
 
 object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with DefaultJsValueEncoders {
@@ -446,9 +492,10 @@ object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with DefaultJsV
 
   trait Decomposers {
     import Domain._
-    implicit lazy val variantDecomposer: Decomposer[Variant] = variant => Decomposed(
-      Keys.VariantId ~> variant.id,
-      Keys.VariantName ~> variant.name
+    implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
+      Decomposed(
+        Keys.VariantId ~> variant.id,
+        Keys.VariantName ~> variant.name
     )
   }
 }

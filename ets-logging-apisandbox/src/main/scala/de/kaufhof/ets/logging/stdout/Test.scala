@@ -392,9 +392,34 @@ object Api {
       override def createDoubleEncoder: Encoder[Double] = Encoder.fromPlayJsonWrites
       override def createCharEncoder: Encoder[Char] = Encoder[Char].by(_.toByte)
       override def createByteEncoder: Encoder[Byte] = Encoder.fromPlayJsonWrites
-      override def createUuidEncoder: Encoder[UUID] = Encoder.fromToString
+      override def createUuidEncoder: Encoder[UUID] = Encoder.fromPlayJsonWrites
       override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
     }
+  }
+  object circejson {
+    import io.circe.Json
+    import io.circe
+    object JsonLogEventCombiner extends PairLogEventCombiner[Json, Json] {
+      override type Pair = (String, Json)
+      override protected def primToPair[I](p: Primitive[I]): Pair = p.key.id -> p.encoded
+      override protected def combinePairs(encoded: Seq[Pair]): Combined = Json.fromFields(encoded)
+    }
+    trait DefaultJsonEncoders extends DefaultEncoders[Json] {
+      implicit class EncoderOps(e: Encoder.type) {
+        def fromCirceJsonEncoder[I](implicit w: circe.Encoder[I]): Encoder[I] = w.apply
+      }
+      override def encodeString(string: String): Encoded = Json.fromString(string)
+
+      override def createIntEncoder: Encoder[Int] = Encoder.fromCirceJsonEncoder
+      override def createLongEncoder: Encoder[Long] = Encoder.fromCirceJsonEncoder
+      override def createFloatEncoder: Encoder[Float] = Encoder.fromCirceJsonEncoder
+      override def createDoubleEncoder: Encoder[Double] = Encoder.fromCirceJsonEncoder
+      override def createCharEncoder: Encoder[Char] = Encoder[Char].by(_.toByte)
+      override def createByteEncoder: Encoder[Byte] = Encoder.fromCirceJsonEncoder
+      override def createUuidEncoder: Encoder[UUID] = Encoder.fromCirceJsonEncoder
+      override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
+    }
+
   }
 
   object logstash {
@@ -413,7 +438,6 @@ object Api {
       }
     }
   }
-
 }
 
 object Domain {
@@ -470,8 +494,8 @@ object Domain {
     }
 
     object playjson {
-      import play.api.libs.json._
       import Api.playjson._
+      import play.api.libs.json._
 
       object JsValueKeys extends LogKeysSyntax[JsValue] with DefaultJsValueEncoders {
         val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
@@ -488,6 +512,47 @@ object Domain {
       object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with DefaultJsValueEncoders {
         override type Combined = JsValue
         override def combiner: EventCombiner = JsValueLogEventCombiner
+        override def appender: Appender = StdOutStringLogAppender.comap(_.toString())
+
+        override val classNameLevels: Map[String, Level] = Map(
+          "Asd" -> Level.Debug
+        )
+
+        val Keys: JsValueKeys.type = JsValueKeys
+
+        // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
+        override def predefKeys: PredefKeys = Keys
+        val syntax = ConfigSyntax(JsValueKeys, Decomposers)
+
+        object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
+          implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
+            Decomposed(
+              Keys.VariantId ~> variant.id,
+              Keys.VariantName ~> variant.name
+            )
+        }
+      }
+    }
+
+    object circejson {
+      import Api.circejson._
+      import io.circe.Json
+
+      object JsValueKeys extends LogKeysSyntax[Json] with DefaultJsonEncoders {
+        val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
+        val Level: Key[Level] = Key("level").withImplicitEncoder
+        val Message: Key[String] = Key("msg").withImplicitEncoder
+        val Timestamp: Key[LocalDateTime] = Key("ts").withExplicit(Encoder.fromToString)
+        val VariantId: Key[VariantId] = Key("variantid").withExplicit(Encoder[VariantId].by(_.value))
+        val VariantName: Key[String] = Key("variantname").withImplicitEncoder
+        val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
+        val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
+        val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
+      }
+
+      object JsonLogConfig extends Api.DefaultLogConfig[Json, Unit] with DefaultJsonEncoders {
+        override type Combined = Json
+        override def combiner: EventCombiner = JsonLogEventCombiner
         override def appender: Appender = StdOutStringLogAppender.comap(_.toString())
 
         override val classNameLevels: Map[String, Level] = Map(

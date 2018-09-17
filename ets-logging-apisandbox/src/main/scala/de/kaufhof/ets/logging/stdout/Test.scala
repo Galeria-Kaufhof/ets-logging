@@ -4,10 +4,6 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 import de.kaufhof.ets.logging.stdout.Api._
-import net.logstash.logback.marker.Markers
-import play.api.libs.json._
-import org.slf4j
-import org.slf4j.Marker
 
 import scala.language.implicitConversions
 import scala.util.Random
@@ -51,7 +47,7 @@ object Api {
       override def ignore: O = self.ignore
     }
   }
-  object SdtoutStringLogAppender extends LogAppender[String, Unit] {
+  object StdOutStringLogAppender extends LogAppender[String, Unit] {
     override def append(combined: String): Unit = println(combined)
     override def ignore: Unit = ()
   }
@@ -118,23 +114,6 @@ object Api {
     override type Pair = String
     override protected def primToPair[I](p: Primitive[I]): Pair = s"${p.key.id} -> ${p.encoded}"
     override protected def combinePairs(encoded: Seq[Pair]): Combined = encoded.sorted.mkString(" | ")
-  }
-  object JsValueLogEventCombiner extends PairLogEventCombiner[JsValue, JsValue] {
-    override type Pair = (String, JsValue)
-    override protected def primToPair[I](p: Primitive[I]): Pair = p.key.id -> p.encoded
-    override protected def combinePairs(encoded: Seq[Pair]): Combined = JsObject(encoded)
-  }
-  // TODO: provide SLF4J based event filter taking the underlying configuration into account
-  object Slf4jMarkerLogEventCombiner extends LogEventCombiner[slf4j.Marker, slf4j.Marker] {
-    override def combine(e: LogEvent[Encoded]): Marker = {
-      import scala.collection.JavaConverters._
-      val zero: slf4j.Marker = Markers.appendEntries(Map.empty.asJava)
-      e.foldLeft(zero) { (acc, marker) =>
-        // TODO: this is a workaround. why does acc.and(marker) throw a class cast exception?
-        acc.add(marker._2.encoded)
-        acc
-      }
-    }
   }
 
   trait ClassNameExtractor {
@@ -367,24 +346,8 @@ object Api {
     override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
   }
 
-  trait DefaultJsValueEncoders extends DefaultEncoders[JsValue] {
-    implicit class EncoderOps(e: Encoder.type) {
-      def fromPlayJsonWrites[I](implicit w: Writes[I]): Encoder[I] = w.writes
-    }
-    override def encodeString(string: String): Encoded = JsString(string)
-
-    override def createIntEncoder: Encoder[Int] = Encoder.fromPlayJsonWrites
-    override def createLongEncoder: Encoder[Long] = Encoder.fromPlayJsonWrites
-    override def createFloatEncoder: Encoder[Float] = Encoder.fromPlayJsonWrites
-    override def createDoubleEncoder: Encoder[Double] = Encoder.fromPlayJsonWrites
-    override def createCharEncoder: Encoder[Char] = Encoder[Char].by(_.toByte)
-    override def createByteEncoder: Encoder[Byte] = Encoder.fromPlayJsonWrites
-    override def createUuidEncoder: Encoder[UUID] = Encoder.fromToString
-    override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
-  }
-
   trait LogKeysSyntax[E]
-    extends LogPredefKeys[E]
+      extends LogPredefKeys[E]
       with LogTypeDefinitions[E]
       with LogKeySyntax[E]
       with LogEncoderSyntax[E]
@@ -410,6 +373,47 @@ object Api {
     def apply[K, D](keys: => K, decomposers: => D) = new ConfigSyntax[K, D](keys _, decomposers _)
   }
 
+  object playjson {
+    import play.api.libs.json._
+    object JsValueLogEventCombiner extends PairLogEventCombiner[JsValue, JsValue] {
+      override type Pair = (String, JsValue)
+      override protected def primToPair[I](p: Primitive[I]): Pair = p.key.id -> p.encoded
+      override protected def combinePairs(encoded: Seq[Pair]): Combined = JsObject(encoded)
+    }
+    trait DefaultJsValueEncoders extends DefaultEncoders[JsValue] {
+      implicit class EncoderOps(e: Encoder.type) {
+        def fromPlayJsonWrites[I](implicit w: Writes[I]): Encoder[I] = w.writes
+      }
+      override def encodeString(string: String): Encoded = JsString(string)
+
+      override def createIntEncoder: Encoder[Int] = Encoder.fromPlayJsonWrites
+      override def createLongEncoder: Encoder[Long] = Encoder.fromPlayJsonWrites
+      override def createFloatEncoder: Encoder[Float] = Encoder.fromPlayJsonWrites
+      override def createDoubleEncoder: Encoder[Double] = Encoder.fromPlayJsonWrites
+      override def createCharEncoder: Encoder[Char] = Encoder[Char].by(_.toByte)
+      override def createByteEncoder: Encoder[Byte] = Encoder.fromPlayJsonWrites
+      override def createUuidEncoder: Encoder[UUID] = Encoder.fromToString
+      override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
+    }
+  }
+
+  object logstash {
+    import org.slf4j.Marker
+    import net.logstash.logback.marker.Markers
+    // TODO: provide SLF4J based event filter taking the underlying configuration into account
+    object Slf4jLogstashMarkerLogEventCombiner extends LogEventCombiner[Marker, Marker] {
+      override def combine(e: LogEvent[Encoded]): Marker = {
+        import scala.collection.JavaConverters._
+        val zero: Marker = Markers.appendEntries(Map.empty.asJava)
+        e.foldLeft(zero) { (acc, marker) =>
+          // TODO: this is a workaround. why does acc.and(marker) throw a class cast exception?
+          acc.add(marker._2.encoded)
+          acc
+        }
+      }
+    }
+  }
+
 }
 
 object Domain {
@@ -417,93 +421,94 @@ object Domain {
   case class Variant(id: VariantId, name: String)
   val variant: Variant = Variant(VariantId("VariantId"), "VariantName")
   val uuid: UUID = java.util.UUID.fromString("723f03f5-13a6-4e46-bdac-3c66718629df")
-}
 
-object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
-  import Domain._
-  val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
-  val Level: Key[Level] = Key("level").withImplicitEncoder
-  val Message: Key[String] = Key("msg").withImplicitEncoder
-  val Timestamp: Key[LocalDateTime] = Key("ts").withExplicit(Encoder.fromToString)
-  val VariantId: Key[VariantId] = Key("variantid").withExplicit(Encoder[VariantId].by(_.value))
-  val VariantName: Key[String] = Key("variantname").withImplicitEncoder
-  val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
-  val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
-  val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
-}
+  object encoding {
+    object string {
+      object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
+        val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
+        val Level: Key[Level] = Key("level").withImplicitEncoder
+        val Message: Key[String] = Key("msg").withImplicitEncoder
+        val Timestamp: Key[LocalDateTime] = Key("ts").withExplicit(Encoder.fromToString)
+        val VariantId: Key[VariantId] = Key("variantid").withExplicit(Encoder[VariantId].by(_.value))
+        val VariantName: Key[String] = Key("variantname").withImplicitEncoder
+        val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
+        val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
+        val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
+      }
 
+      object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultStringEncoders {
+        override type Combined = String
+        override def combiner: LogEventCombiner[String, String] = StringLogEventCombiner
+        override def appender: Appender = StdOutStringLogAppender
+        override val classNameLevels: Map[String, Level] = Map(
+          "Asd" -> Level.Debug
+        )
 
-object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultStringEncoders {
-  override type Combined = String
-  override def combiner: LogEventCombiner[String, String] = StringLogEventCombiner
-  override def appender: Appender = SdtoutStringLogAppender
-  override val classNameLevels: Map[String, Level] = Map(
-    "Asd" -> Level.Debug
-  )
+        // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
+        // TODO: it is not so easy my first attempt resulted in intellij being confused about the Keys object
+        // TODO: or it could not find the general decomposer implicits being mixed in
+        val syntax = ConfigSyntax(StringKeys, Decomposers)
+        override def predefKeys: PredefKeys = syntax.Keys
 
+        // TODO: here is a chance to reduce duplication, any decomposer depends on the domain, its keys and the encoding
+        // TODO: the encoding isn't exactly specific to the decomposers, it should be possible to define decomposers
+        // TODO: according to only knowing the keys relative to an encoded type E
+        // TODO: maybe we just need another type K for the Keys the user is going to provide like this:
+        // TODO:     trait LogDecomposers[K] {
+        // TODO:       type Keys = K
+        // TODO:       val Keys: Keys
+        // TODO:     }
+        object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
+          import syntax._
+          implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
+            Decomposed(
+              Keys.VariantId ~> variant.id,
+              Keys.VariantName ~> variant.name
+          )
+        }
+      }
+    }
 
-  // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
-  // TODO: it is not so easy my first attempt resulted in intellij being confused about the Keys object
-  // TODO: or it could not find the general decomposer implicits being mixed in
-  val syntax = ConfigSyntax(StringKeys, Decomposers)
-  override def predefKeys: PredefKeys = syntax.Keys
+    object playjson {
+      import play.api.libs.json._
+      import Api.playjson._
 
-  // TODO: here is a chance to reduce duplication, any decomposer depends on the domain, its keys and the encoding
-  // TODO: the encoding isn't exactly specific to the decomposers, it should be possible to define decomposers
-  // TODO: according to only knowing the keys relative to an encoded type E
-  // TODO: maybe we just need another type K for the Keys the user is going to provide like this:
-  // TODO:     trait LogDecomposers[K] {
-  // TODO:       type Keys = K
-  // TODO:       val Keys: Keys
-  // TODO:     }
-  object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
-    import Domain._
-    import syntax._
-    implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
-      Decomposed(
-        Keys.VariantId ~> variant.id,
-        Keys.VariantName ~> variant.name
-    )
-  }
-}
+      object JsValueKeys extends LogKeysSyntax[JsValue] with DefaultJsValueEncoders {
+        val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
+        val Level: Key[Level] = Key("level").withImplicitEncoder
+        val Message: Key[String] = Key("msg").withImplicitEncoder
+        val Timestamp: Key[LocalDateTime] = Key("ts").withExplicit(Encoder.fromToString)
+        val VariantId: Key[VariantId] = Key("variantid").withExplicit(Encoder[VariantId].by(_.value))
+        val VariantName: Key[String] = Key("variantname").withImplicitEncoder
+        val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
+        val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
+        val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
+      }
 
-object JsValueKeys extends LogKeysSyntax[JsValue] with DefaultJsValueEncoders {
-  import Domain._
-  val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
-  val Level: Key[Level] = Key("level").withImplicitEncoder
-  val Message: Key[String] = Key("msg").withImplicitEncoder
-  val Timestamp: Key[LocalDateTime] = Key("ts").withExplicit(Encoder.fromToString)
-  val VariantId: Key[VariantId] = Key("variantid").withExplicit(Encoder[VariantId].by(_.value))
-  val VariantName: Key[String] = Key("variantname").withImplicitEncoder
-  val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
-  val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
-  val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
-}
+      object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with DefaultJsValueEncoders {
+        override type Combined = JsValue
+        override def combiner: EventCombiner = JsValueLogEventCombiner
+        override def appender: Appender = StdOutStringLogAppender.comap(_.toString())
 
-object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with DefaultJsValueEncoders {
-  self =>
+        override val classNameLevels: Map[String, Level] = Map(
+          "Asd" -> Level.Debug
+        )
 
-  override type Combined = JsValue
-  override def combiner: EventCombiner = JsValueLogEventCombiner
-  override def appender: Appender = SdtoutStringLogAppender.comap(_.toString())
+        val Keys: JsValueKeys.type = JsValueKeys
 
-  override val classNameLevels: Map[String, Level] = Map(
-    "Asd" -> Level.Debug
-  )
+        // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
+        override def predefKeys: PredefKeys = Keys
+        val syntax = ConfigSyntax(JsValueKeys, Decomposers)
 
-  val Keys: JsValueKeys.type = JsValueKeys
-
-  // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
-  override def predefKeys: PredefKeys = Keys
-  val syntax = ConfigSyntax(JsValueKeys, Decomposers)
-
-  object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
-    import Domain._
-    implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
-      Decomposed(
-        Keys.VariantId ~> variant.id,
-        Keys.VariantName ~> variant.name
-    )
+        object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
+          implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
+            Decomposed(
+              Keys.VariantId ~> variant.id,
+              Keys.VariantName ~> variant.name
+            )
+        }
+      }
+    }
   }
 }
 
@@ -515,7 +520,7 @@ object xyz {
 
 object Main extends App {
   import Domain._
-  val config = JsonLogConfig
+  val config = Domain.encoding.playjson.JsonLogConfig
   import config.syntax._
   import config.syntax.decomposers._
 

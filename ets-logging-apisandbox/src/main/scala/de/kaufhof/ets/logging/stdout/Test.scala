@@ -260,7 +260,6 @@ object Api {
 
   trait LogKeySyntax[E] extends LogTypeDefinitions[E] {
     object Key {
-//      def apply[I](id: String, encoder: Encoder[I]): Key[I] = LogKey(id, encoder)
       def apply(id: String): KeyOps = new KeyOps(id)
     }
     class KeyOps(id: String) {
@@ -384,6 +383,13 @@ object Api {
     override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
   }
 
+  trait LogKeysSyntax[E]
+    extends LogPredefKeys[E]
+      with LogTypeDefinitions[E]
+      with LogKeySyntax[E]
+      with LogEncoderSyntax[E]
+      with ClassNameExtractor
+
   // TODO: specify minimal base trait for any kind of LogConfig
   trait DefaultLogConfig[E, O]
       extends LogKeySyntax[E]
@@ -396,6 +402,14 @@ object Api {
       with DefaultAttributeGatherer[E]
       with ClassNameExtractor
 
+  class ConfigSyntax[K, D](createKeys: Lazy[K], createDecomposers: Lazy[D]) {
+    val Keys: K = createKeys()
+    val decomposers: D = createDecomposers()
+  }
+  object ConfigSyntax {
+    def apply[K, D](keys: => K, decomposers: => D) = new ConfigSyntax[K, D](keys _, decomposers _)
+  }
+
 }
 
 object Domain {
@@ -404,13 +418,6 @@ object Domain {
   val variant: Variant = Variant(VariantId("VariantId"), "VariantName")
   val uuid: UUID = java.util.UUID.fromString("723f03f5-13a6-4e46-bdac-3c66718629df")
 }
-
-trait LogKeysSyntax[E]
-    extends LogPredefKeys[E]
-    with LogTypeDefinitions[E]
-    with LogKeySyntax[E]
-    with LogEncoderSyntax[E]
-    with ClassNameExtractor
 
 object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
   import Domain._
@@ -425,10 +432,8 @@ object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
   val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
 }
 
-object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultStringEncoders {
-  // TODO: try to avoid self type here
-  self =>
 
+object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultStringEncoders {
   override type Combined = String
   override def combiner: LogEventCombiner[String, String] = StringLogEventCombiner
   override def appender: Appender = SdtoutStringLogAppender
@@ -436,15 +441,12 @@ object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultSt
     "Asd" -> Level.Debug
   )
 
-  val Keys: StringKeys.type = StringKeys
 
   // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
   // TODO: it is not so easy my first attempt resulted in intellij being confused about the Keys object
   // TODO: or it could not find the general decomposer implicits being mixed in
-  override def predefKeys: PredefKeys = Keys
-  object syntax extends Decomposers with Decomposer2DecomposedImplicits[Encoded] {
-    val Keys: self.Keys.type = self.Keys
-  }
+  val syntax = ConfigSyntax(StringKeys, Decomposers)
+  override def predefKeys: PredefKeys = syntax.Keys
 
   // TODO: here is a chance to reduce duplication, any decomposer depends on the domain, its keys and the encoding
   // TODO: the encoding isn't exactly specific to the decomposers, it should be possible to define decomposers
@@ -454,8 +456,9 @@ object StringLogConfig extends Api.DefaultLogConfig[String, Unit] with DefaultSt
   // TODO:       type Keys = K
   // TODO:       val Keys: Keys
   // TODO:     }
-  trait Decomposers {
+  object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
     import Domain._
+    import syntax._
     implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
       Decomposed(
         Keys.VariantId ~> variant.id,
@@ -492,11 +495,9 @@ object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with DefaultJsV
 
   // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
   override def predefKeys: PredefKeys = Keys
-  object syntax extends Decomposers with Decomposer2DecomposedImplicits[Encoded] {
-    val Keys: self.Keys.type = self.Keys
-  }
+  val syntax = ConfigSyntax(JsValueKeys, Decomposers)
 
-  trait Decomposers {
+  object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
     import Domain._
     implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
       Decomposed(
@@ -508,7 +509,7 @@ object JsonLogConfig extends Api.DefaultLogConfig[JsValue, Unit] with DefaultJsV
 
 object xyz {
   import Domain._
-  import Main.config.syntax._
+  import Main.config.syntax.decomposers._
   val composite: Main.config.Attribute = variant
 }
 
@@ -516,6 +517,7 @@ object Main extends App {
   import Domain._
   val config = JsonLogConfig
   import config.syntax._
+  import config.syntax.decomposers._
 
   object Test extends config.LogInstance {
     log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)

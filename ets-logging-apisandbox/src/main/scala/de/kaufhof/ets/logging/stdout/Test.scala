@@ -53,7 +53,7 @@ object Api {
     override def ignore: Unit = ()
   }
   import cats.effect.IO
-  object CatsIoAppender extends LogAppender [String, IO[Unit]]{
+  object CatsIoAppender extends LogAppender[String, IO[Unit]] {
     override def append(combined: String): IO[Unit] = IO(println(combined))
     override def ignore: IO[Unit] = IO(())
   }
@@ -379,6 +379,23 @@ object Api {
     def apply[K, D](keys: => K, decomposers: => D) = new ConfigSyntax[K, D](keys _, decomposers _)
   }
 
+  object actor {
+    import akka.actor._
+    trait ActorEncoders[E] extends DefaultEncoders[E] {
+      def createActorPathEncoder: Encoder[ActorPath] = Encoder.fromToString
+      implicit lazy val actorPathEncoder: Encoder[ActorPath] = createActorPathEncoder
+    }
+    trait ActorDecomposers[E] extends Decomposer2DecomposedImplicits[E] with LogKeySyntax[E] {
+      implicit val actorDecomposer: Decomposer[Actor]
+      implicit def anyActor2Decomposer[A <: Actor]: Decomposer[A] =
+        actor => Decomposed(actorDecomposer.encode(actor).primitives: _*)
+    }
+    trait ActorPredefKeys[E] {
+      val ActorSource: LogKey[ActorPath, E]
+    }
+    trait ActorLogKeysSyntax[E] extends ActorPredefKeys[E] with ActorEncoders[E]
+  }
+
   object playjson {
     import play.api.libs.json._
     object JsValueLogEventCombiner extends PairLogEventCombiner[JsValue, JsValue] {
@@ -403,8 +420,8 @@ object Api {
     }
   }
   object circejson {
-    import io.circe.Json
     import io.circe
+    import io.circe.Json
     object JsonLogEventCombiner extends PairLogEventCombiner[Json, Json] {
       override type Pair = (String, Json)
       override protected def primToPair[I](p: Primitive[I]): Pair = p.key.id -> p.encoded
@@ -429,8 +446,8 @@ object Api {
   }
 
   object logstash {
-    import org.slf4j.Marker
     import net.logstash.logback.marker.Markers
+    import org.slf4j.Marker
     // TODO: provide SLF4J based event filter taking the underlying configuration into account
     object Slf4jLogstashMarkerLogEventCombiner extends LogEventCombiner[Marker, Marker] {
       override def combine(e: LogEvent[Encoded]): Marker = {
@@ -535,16 +552,17 @@ object Domain {
             Decomposed(
               Keys.VariantId ~> variant.id,
               Keys.VariantName ~> variant.name
-            )
+          )
         }
       }
     }
 
     object circejson {
       import Api.circejson._
+      import akka.actor.{Actor, ActorPath}
       import io.circe.Json
 
-      object JsValueKeys extends LogKeysSyntax[Json] with DefaultJsonEncoders {
+      trait JsonKeys extends LogKeysSyntax[Json] with DefaultJsonEncoders with actor.ActorLogKeysSyntax[Json] {
         val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
         val Level: Key[Level] = Key("level").withImplicitEncoder
         val Message: Key[String] = Key("msg").withImplicitEncoder
@@ -554,7 +572,9 @@ object Domain {
         val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
         val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
         val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
+        val ActorSource: Key[ActorPath] = Key("actorSource").withImplicitEncoder
       }
+      object JsonKeys extends JsonKeys
 
       object JsonLogConfig extends Api.DefaultLogConfig[Json, Unit] with DefaultJsonEncoders {
         override type Combined = Json
@@ -565,18 +585,18 @@ object Domain {
           "Asd" -> Level.Debug
         )
 
-        val Keys: JsValueKeys.type = JsValueKeys
+        val Keys: JsonKeys.type = JsonKeys
 
         // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
         override def predefKeys: PredefKeys = Keys
-        val syntax = ConfigSyntax(JsValueKeys, Decomposers)
+        val syntax = ConfigSyntax(JsonKeys, Decomposers)
 
         object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
           implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
             Decomposed(
               Keys.VariantId ~> variant.id,
               Keys.VariantName ~> variant.name
-            )
+          )
         }
       }
 
@@ -589,18 +609,22 @@ object Domain {
           "Asd" -> Level.Debug
         )
 
-        val Keys: JsValueKeys.type = JsValueKeys
+        val Keys: JsonKeys = JsonKeys
 
         // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
         override def predefKeys: PredefKeys = Keys
-        val syntax = ConfigSyntax(JsValueKeys, Decomposers)
+        val syntax = ConfigSyntax(JsonKeys, Decomposers)
 
-        object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
+        object Decomposers extends Decomposer2DecomposedImplicits[Encoded] with actor.ActorDecomposers[Encoded] {
           implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
             Decomposed(
               Keys.VariantId ~> variant.id,
               Keys.VariantName ~> variant.name
-            )
+          )
+          override implicit val actorDecomposer: Decomposers.Decomposer[Actor] = actor =>
+            Decomposed(
+              Keys.ActorSource -> actor.context.self.path
+          )
         }
       }
     }
@@ -675,10 +699,37 @@ object Main extends App {
     println("execution done!")
   }
 
+  object ActorTest extends config2.LogInstance {
+    import akka.actor.{Actor, ActorSystem, Props}
+    import config2.syntax.decomposers._
+    val as = ActorSystem("test")
+    as.actorOf(Props(new SomeActor), "somesource")
+    class SomeActor extends Actor {
+      val x: IO[Unit] = for {
+        _ <- log.event(this)
+        _ <- log.event(variant)
+        _ <- log.debug("test123", variant)
+        _ <- log.info("test234", variant)
+        _ <- log.error("test345", variant)
+      } yield ()
+      println
+      println("nothing happened so far")
+      x.unsafeRunSync()
+      println("execution done!")
+
+      context.stop(self)
+      as.terminate()
+      override def receive: Receive = {
+        case _ =>
+      }
+    }
+  }
+
   Test
   Asdf
   println
   TestEager
   TestLazy
   CatsIoTest
+  ActorTest
 }

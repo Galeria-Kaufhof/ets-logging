@@ -3,6 +3,7 @@ package de.kaufhof.ets.logging.stdout
 import java.time.LocalDateTime
 import java.util.UUID
 
+import cats.effect.IO
 import de.kaufhof.ets.logging.stdout.Api._
 
 import scala.language.implicitConversions
@@ -50,6 +51,11 @@ object Api {
   object StdOutStringLogAppender extends LogAppender[String, Unit] {
     override def append(combined: String): Unit = println(combined)
     override def ignore: Unit = ()
+  }
+  import cats.effect.IO
+  object CatsIoAppender extends LogAppender [String, IO[Unit]]{
+    override def append(combined: String): IO[Unit] = IO(println(combined))
+    override def ignore: IO[Unit] = IO(())
   }
 
   trait LogEncoder[I, O] { def encode(value: I): O }
@@ -573,6 +579,30 @@ object Domain {
             )
         }
       }
+
+      object CatsIoJsonLogConfig extends Api.DefaultLogConfig[Json, cats.effect.IO[Unit]] with DefaultJsonEncoders {
+        override type Combined = Json
+        override def combiner: EventCombiner = JsonLogEventCombiner
+        override def appender: Appender = CatsIoAppender.comap(_.toString())
+
+        override val classNameLevels: Map[String, Level] = Map(
+          "Asd" -> Level.Debug
+        )
+
+        val Keys: JsValueKeys.type = JsValueKeys
+
+        // TODO: avoid duplication of syntax and Keys definition, lookup other config to see duplication
+        override def predefKeys: PredefKeys = Keys
+        val syntax = ConfigSyntax(JsValueKeys, Decomposers)
+
+        object Decomposers extends Decomposer2DecomposedImplicits[Encoded] {
+          implicit lazy val variantDecomposer: Decomposer[Variant] = variant =>
+            Decomposed(
+              Keys.VariantId ~> variant.id,
+              Keys.VariantName ~> variant.name
+            )
+        }
+      }
     }
   }
 }
@@ -586,10 +616,11 @@ object xyz {
 object Main extends App {
   import Domain._
   val config = Domain.encoding.playjson.JsonLogConfig
-  import config.syntax._
-  import config.syntax.decomposers._
+  val config2 = Domain.encoding.circejson.CatsIoJsonLogConfig
 
   object Test extends config.LogInstance {
+    import config.syntax._
+    import config.syntax.decomposers._
     log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
     log.event(variant)
     log.debug("test123", variant)
@@ -597,6 +628,8 @@ object Main extends App {
     log.error("test345", variant)
   }
   object Asdf extends config.LogInstance {
+    import config.syntax._
+    import config.syntax.decomposers._
     log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
     log.event(variant)
     log.debug("test123", variant)
@@ -605,6 +638,7 @@ object Main extends App {
   }
 
   object TestEager extends config.LogInstance {
+    import config.syntax._
     val rEval = new Random(0)
     val rEnc = new Random(0)
     def eval: config.Attribute = Keys.RandomEval -> rEval.nextInt(100)
@@ -615,6 +649,7 @@ object Main extends App {
   }
 
   object TestLazy extends config.LogInstance {
+    import config.syntax._
     val rEval = new Random(0)
     val rEnc = new Random(0)
     val eval: config.Attribute = Keys.RandomEval ~> rEval.nextInt(100)
@@ -624,9 +659,26 @@ object Main extends App {
     log.event(eval, enc)
   }
 
+  object CatsIoTest extends config2.LogInstance {
+    import config2.syntax._
+    import config2.syntax.decomposers._
+    val x: IO[Unit] = for {
+      _ <- log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+      _ <- log.event(variant)
+      _ <- log.debug("test123", variant)
+      _ <- log.info("test234", variant)
+      _ <- log.error("test345", variant)
+    } yield ()
+    println
+    println("nothing happened so far")
+    x.unsafeRunSync()
+    println("execution done!")
+  }
+
   Test
   Asdf
   println
   TestEager
   TestLazy
+  CatsIoTest
 }

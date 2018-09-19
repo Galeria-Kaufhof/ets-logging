@@ -6,10 +6,10 @@
         <groupId>de.kaufhof.ets</groupId>
         <artifactId>ets-logging-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath />
+        <relativePath/>
     </parent>
 
-    <artifactId>ets-logging-core</artifactId>
+    <artifactId>ets-logging-usage</artifactId>
     <version>0.1.0-SNAPSHOT</version>
 
     <scm>
@@ -24,6 +24,27 @@
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>de.kaufhof.ets</groupId>
+            <artifactId>ets-logging-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>de.kaufhof.ets</groupId>
+            <artifactId>ets-logging-playjson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>de.kaufhof.ets</groupId>
+            <artifactId>ets-logging-circejson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>de.kaufhof.ets</groupId>
+            <artifactId>ets-logging-actor</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>de.kaufhof.ets</groupId>
+            <artifactId>ets-logging-catsio</artifactId>
         </dependency>
     </dependencies>
 

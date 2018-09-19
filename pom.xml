@@ -8,7 +8,6 @@
         <version>[0.3.0,1)</version>
     </parent>
 
-    <groupId>de.kaufhof.ets</groupId>
     <artifactId>ets-logging-aggregator</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -16,7 +15,14 @@
     <url>https://github.com/Galeria-Kaufhof/ets-logging</url>
 
     <modules>
+        <module>ets-logging-parent</module>
         <module>ets-logging-core</module>
+        <module>ets-logging-playjson</module>
+        <module>ets-logging-circejson</module>
+        <module>ets-logging-actor</module>
+        <module>ets-logging-catsio</module>
+
+        <module>ets-logging-usage</module>
     </modules>
 
     <licenses>

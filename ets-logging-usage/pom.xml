@@ -6,7 +6,7 @@
         <groupId>de.kaufhof.ets</groupId>
         <artifactId>ets-logging-parent</artifactId>
         <version>0.1.0-SNAPSHOT</version>
-        <relativePath/>
+        <relativePath>../ets-logging-parent</relativePath>
     </parent>
 
     <artifactId>ets-logging-usage</artifactId>
@@ -48,22 +48,27 @@
         <dependency>
             <groupId>de.kaufhof.ets</groupId>
             <artifactId>ets-logging-core</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>de.kaufhof.ets</groupId>
             <artifactId>ets-logging-playjson</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>de.kaufhof.ets</groupId>
             <artifactId>ets-logging-circejson</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>de.kaufhof.ets</groupId>
             <artifactId>ets-logging-actor</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>de.kaufhof.ets</groupId>
             <artifactId>ets-logging-catsio</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
 

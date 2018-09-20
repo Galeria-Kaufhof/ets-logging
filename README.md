@@ -2,17 +2,7 @@ This library is currently in the prototyping phase.
 Don't expect working code and don't even try to use it!
 
 
-# `ets-logging-apisandbox` 
-This is the place to lay down the target api.
-Furthermore, it is used to test some api aspects.
-Aspects include: General API Look And Feel, Type inference, Performance, Physical Module Layout, Example Configuration.
-To cover all aspects, all required dependencies are available at once in a single sbt build.
-Aspects are covered in separate packages as single scala files.
-Physical modules that emerge are developed as objects within those files.
-Names are still very volatile.
-
-
-## Basic Idea
+# Basic Idea
 Add this to your `build.sbt`:
 ```
 libraryDependencies += "de.kaufhof.ets" %% "ets-logging-core" % "0.1.0-SNAPSHOT"
@@ -80,23 +70,36 @@ Provide a logger instance called `log` via mixin into your `class`/`trait`/`obje
 Then use it to log different attributes in combination with a message:
 ```
 object Main extends StringLogConfig.LogInstance {
-  val variant: Variant = ???
-  val uuid: UUID = ???
+  val variant: Variant = Variant(VariantId("VariantId"), "VariantName")
+  val uuid: UUID = java.util.UUID.fromString("723f03f5-13a6-4e46-bdac-3c66718629df")
 
-  log.error("some error", variant)
-  log.error("some error", variant, Keys.SomeUUID ~> uuid)
-
-  log.error("some error", Keys.jsKey ~> jsValue)
-  log.error("some error", Keys.jsKey ~> TestClass(234, "x"))
-  log.error("some error", Keys.objKey ~> TestClass(345, "x"))
+  // use standard log methods with severity for the log level and a message
+  log.debug("test123")
+  log.info("test234")
+  // provide additional information with an arbitrary amount of key value pairs, called attributes
+  log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
+  // use the generic event method to construct arbitrary log events without any predefined attributes
+  log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+  // or pass any amount of decomposable objects
+  // this requires an implicit decomposer to be in scope
+  // then the decomposer will decompose the available attributes for you
+  log.event(variant)
 }
 ```
 
 Also take look into the short self-contained complete compliable example under:
-(test/Main.scala)[ets-logging-usage/src/main/scala/de/kaufhof/ets/logging/test/Main.scala]
+[test/Main.scala](ets-logging-usage/src/main/scala/de/kaufhof/ets/logging/test/Main.scala)
+
+Possible output could then look like this:
+```
+level -> Info | logger -> README$ | msg -> test234 | ts -> 2018-09-20T12:29:39.202
+level -> Error | logger -> README$ | msg -> test345 | ts -> 2018-09-20T12:29:39.235 | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
+logger -> README$ | ts -> -999999999-01-01T00:00 | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
+logger -> README$ | ts -> 2018-09-20T12:29:39.240 | variantid -> VariantId | variantname -> VariantName
+```
 
 
-## Module Layout
+# Module Layout
 The project is organized as a maven multi module project.
 The idea is that the `ets-logging-core` doesn't deliver any dependencies.
 Code fragments that require any dependencies are delivered as sub modules.
@@ -118,3 +121,13 @@ Artificats available only during prototyping will disappear once the project is 
 ├── ets-logging-shapeless        !!! not available yet !!! derive decomposer from case classes
 └── ets-logging-usage            example usage combining all modules
 ```
+
+
+# `ets-logging-apisandbox`
+This is the place to lay down the target api.
+Furthermore, it is used to test some api aspects.
+Aspects include: General API Look And Feel, Type inference, Performance, Physical Module Layout, Example Configuration.
+To cover all aspects, all required dependencies are available at once in a single sbt build.
+Aspects are covered in separate packages as single scala files.
+Physical modules that emerge are developed as objects within those files.
+Names are still very volatile.

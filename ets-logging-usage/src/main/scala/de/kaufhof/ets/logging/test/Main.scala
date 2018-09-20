@@ -12,6 +12,24 @@ object Main extends App {
   val catsioConfig = encoding.catsio.CatsIoJsonLogConfig
   val actorConfig = encoding.actor.JsonLogConfig
 
+  object README extends encoding.string.StringLogConfig.LogInstance {
+    // use standard log methods with severity for the log level and a message
+    log.debug("test123")
+    log.info("test234")
+
+    // provide additional information with an arbitrary amount of key value pairs, called attributes
+    import encoding.string.StringLogConfig.syntax._
+    log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
+    // use the generic event method to construct arbitrary log events without any predefined attributes
+    log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+
+    // or pass any amount of decomposable objects
+    // this requires an implicit decomposer to be in scope
+    // then the decomposer will decompose the available attributes for you
+    import encoding.string.StringLogConfig.syntax.decomposers._
+    log.event(variant)
+  }
+
   object Test extends encoding.playjson.JsonLogConfig.LogInstance {
     import encoding.playjson.JsonLogConfig.syntax._
     import encoding.playjson.JsonLogConfig.syntax.decomposers._
@@ -95,6 +113,7 @@ object Main extends App {
     }
   }
 
+  README
   Test
   Asdf
   println

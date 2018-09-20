@@ -24,7 +24,6 @@
         <dependency>
             <groupId>de.kaufhof.ets</groupId>
             <artifactId>ets-logging-core</artifactId>
-            <version>0.1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
@@ -33,6 +32,10 @@
         <dependency>
             <groupId>io.circe</groupId>
             <artifactId>circe-core_${ets.scala.compat.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.typelevel</groupId>
+            <artifactId>cats-core_${ets.scala.compat.version}</artifactId>
         </dependency>
     </dependencies>
 

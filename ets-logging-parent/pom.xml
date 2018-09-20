@@ -20,38 +20,8 @@
         <tag>HEAD</tag>
     </scm>
 
-    <properties>
-        <ets.logging.version>${project.version}</ets.logging.version>
-    </properties>
-
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>de.kaufhof.ets</groupId>
-                <artifactId>ets-logging-core</artifactId>
-                <version>${ets.logging.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>de.kaufhof.ets</groupId>
-                <artifactId>ets-logging-actor</artifactId>
-                <version>${ets.logging.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>de.kaufhof.ets</groupId>
-                <artifactId>ets-logging-playjson</artifactId>
-                <version>${ets.logging.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>de.kaufhof.ets</groupId>
-                <artifactId>ets-logging-circejson</artifactId>
-                <version>${ets.logging.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>de.kaufhof.ets</groupId>
-                <artifactId>ets-logging-catsio</artifactId>
-                <version>${ets.logging.version}</version>
-            </dependency>
-
             <dependency>
                 <groupId>com.typesafe.akka</groupId>
                 <artifactId>akka-actor_${ets.scala.compat.version}</artifactId>

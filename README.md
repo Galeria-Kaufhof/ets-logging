@@ -4,7 +4,7 @@ Don't expect working code and don't even try to use it!
 
 # Basic Idea
 Add this to your `build.sbt`:
-```
+```scala
 libraryDependencies += "de.kaufhof.ets" %% "ets-logging-core" % "0.1.0-SNAPSHOT"
 ```
 
@@ -51,6 +51,7 @@ object StringLogConfig extends DefaultLogConfig[String, Unit] with DefaultString
   override type Combined = String
   override def combiner: LogEventCombiner[String, String] = StringLogEventCombiner
   override def appender: Appender = StdOutStringLogAppender
+  override def rootLevel: Level = Level.Info
 
   object Decomposers extends Decomposer2DecomposedImplicits[String] {
     import syntax._
@@ -68,14 +69,14 @@ object StringLogConfig extends DefaultLogConfig[String, Unit] with DefaultString
 
 Provide a logger instance called `log` via mixin into your `class`/`trait`/`object` using the above config.
 Then use it to log different attributes in combination with a message:
-```
+```scala
 object Main extends StringLogConfig.LogInstance {
   val variant: Variant = Variant(VariantId("VariantId"), "VariantName")
   val uuid: UUID = java.util.UUID.fromString("723f03f5-13a6-4e46-bdac-3c66718629df")
 
   // use standard log methods with severity for the log level and a message
-  log.debug("test123")
   log.info("test234")
+  log.debug("test123") // will be omitted due to configured rootLevel
   // provide additional information with an arbitrary amount of key value pairs, called attributes
   log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
   // use the generic event method to construct arbitrary log events without any predefined attributes

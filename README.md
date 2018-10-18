@@ -20,14 +20,14 @@ Start defining a set of Keys you wish to use within your logs events:
 import de.kaufhof.ets.logging._
 import de.kaufhof.ets.logging.syntax._
 
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
   val Logger:        Key[Class[_]] =      Key("logger")      .withImplicitEncoder
   val Level:         Key[Level] =         Key("level")       .withImplicitEncoder
   val Message:       Key[String] =        Key("msg")         .withImplicitEncoder
-  val Timestamp:     Key[LocalDateTime] = Key("ts")          .withExplicit(Encoder.fromToString)
+  val Timestamp:     Key[Instant] = Key("ts")          .withExplicit(Encoder.fromToString)
   val VariantId:     Key[VariantId] =     Key("variantid")   .withExplicit(Encoder[VariantId].by(_.value))
   val VariantName:   Key[String] =        Key("variantname") .withImplicitEncoder
   val SomeUUID:      Key[UUID] =          Key("uuid")        .withImplicitEncoder
@@ -80,7 +80,7 @@ object Main extends StringLogConfig.LogInstance {
   // provide additional information with an arbitrary amount of key value pairs, called attributes
   log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
   // use the generic event method to construct arbitrary log events without any predefined attributes
-  log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+  log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
   // or pass any amount of decomposable objects
   // this requires an implicit decomposer to be in scope
   // then the decomposer will decompose the available attributes for you

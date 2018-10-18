@@ -11,7 +11,7 @@ import scala.util.Random
 
 object string {
   object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
-    val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
+    val Logger: Key[String] = Key("logger").withImplicitEncoder
     val Level: Key[Level] = Key("level").withImplicitEncoder
     val Message: Key[String] = Key("msg").withImplicitEncoder
     val Timestamp: Key[Instant] = Key("ts").withExplicit(Encoder.fromToString)
@@ -20,6 +20,7 @@ object string {
     val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
     val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
     val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
+    val Throwable: Key[Throwable] = Key("throwable").withImplicitEncoder
   }
 
   object StringLogConfig extends DefaultLogConfig[String, Unit] with DefaultStringEncoders {

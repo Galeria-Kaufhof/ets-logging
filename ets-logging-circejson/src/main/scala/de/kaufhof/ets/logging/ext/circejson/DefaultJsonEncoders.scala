@@ -21,4 +21,5 @@ trait DefaultJsonEncoders extends DefaultEncoders[Json] {
   override def createByteEncoder: Encoder[Byte] = Encoder.fromCirceJsonEncoder
   override def createUuidEncoder: Encoder[UUID] = Encoder.fromCirceJsonEncoder
   override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
+  override def createThrowableEncoder: Encoder[Throwable] = Encoder.fromToString
 }

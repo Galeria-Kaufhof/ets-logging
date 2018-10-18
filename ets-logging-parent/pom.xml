@@ -2,6 +2,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!-- Remove org.slf4j.spi.SLF4JServiceProvider when upgrading to SLF4J 1.8 -->
     <parent>
         <groupId>de.kaufhof.ets</groupId>
         <artifactId>ets-poms-library-parent</artifactId>

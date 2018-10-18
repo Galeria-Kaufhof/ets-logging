@@ -4,6 +4,7 @@ import java.time.Instant
 
 import cats.effect.IO
 import de.kaufhof.ets.logging.test.domain._
+import org.slf4j.LoggerFactory
 
 import scala.util.Random
 
@@ -28,6 +29,13 @@ object Main extends App {
     // then the decomposer will decompose the available attributes for you
     import encoding.string.StringLogConfig.syntax.decomposers._
     log.event(variant)
+  }
+
+  object Slf4j extends encoding.slf4j.StringLogConfig.LogInstance {
+    log.debug("test123")
+    log.info("test234")
+
+    LoggerFactory.getLogger("test").info("Log with slf4j")
   }
 
   object Test extends encoding.playjson.JsonLogConfig.LogInstance {
@@ -114,6 +122,7 @@ object Main extends App {
   }
 
   README
+  Slf4j
   Test
   Asdf
   println

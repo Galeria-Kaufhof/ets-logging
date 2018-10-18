@@ -6,6 +6,7 @@ import java.util.UUID
 import de.kaufhof.ets.logging._
 import de.kaufhof.ets.logging.test.domain._
 import de.kaufhof.ets.logging.ext.circejson._
+import de.kaufhof.ets.logging.generic.LogKey
 import de.kaufhof.ets.logging.syntax._
 import io.circe.Json
 
@@ -13,7 +14,7 @@ import scala.util.Random
 
 object circejson {
   object JsonKeys extends LogKeysSyntax[Json] with DefaultJsonEncoders {
-    val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
+    val Logger: Key[String] = Key("logger").withImplicitEncoder
     val Level: Key[Level] = Key("level").withImplicitEncoder
     val Message: Key[String] = Key("msg").withImplicitEncoder
     val Timestamp: Key[Instant] = Key("ts").withExplicit(Encoder.fromToString)
@@ -22,12 +23,13 @@ object circejson {
     val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder
     val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
     val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
+    val Throwable: LogKey[Throwable, Json] = Key("throwable").withImplicitEncoder
   }
 
   object JsonLogConfig extends DefaultLogConfig[Json, Unit] with DefaultJsonEncoders {
     override type Combined = Json
     override def combiner: EventCombiner = JsonLogEventCombiner
-    override def appender: Appender = StdOutStringLogAppender.comap(_.toString())
+    override def appender: Appender = StdOutJsonLogAppender
     override val classNameLevels: Map[String, Level] = Map(
       "Asd" -> Level.Debug
     )

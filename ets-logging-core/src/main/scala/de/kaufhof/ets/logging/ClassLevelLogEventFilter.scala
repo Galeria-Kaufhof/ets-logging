@@ -6,15 +6,18 @@ import de.kaufhof.ets.logging.util._
 
 trait ClassLevelLogEventFilter[E]
     extends LogEventFilter[E]
-    with ClassNameExtractor
     with PredefKeysInstance[E]
     with LogTypeDefinitions[E] {
   def rootLevel: Level = Level.Info
   def classNameLevels: Map[String, Level] = Map.empty
 
-  def configuredClassLevel(cls: Class[_]): Option[Level] = {
-    val name = getClassName(cls)
+  def configuredNameLevel(name: String): Option[Level] = {
     findValueByKey(classNameLevels)(name.startsWith)
+  }
+
+  def loggerLevel(name: String): Level = {
+    findValueByKey(classNameLevels)(name.startsWith)
+      .getOrElse(rootLevel)
   }
 
   // event  root   class  || keep
@@ -36,7 +39,7 @@ trait ClassLevelLogEventFilter[E]
     // TODO: avoid asInstanceOf if possible without shapeless
     def evaluatedPrimitive[I](key: Key[I]): Option[I] = getPrimitive(key).map(_.evaluated)
     val eventLevel: Level = evaluatedPrimitive(predefKeys.Level).getOrElse(Level.Highest)
-    val configLevel: Level = evaluatedPrimitive(predefKeys.Logger).flatMap(configuredClassLevel).getOrElse(rootLevel)
+    val configLevel: Level = evaluatedPrimitive(predefKeys.Logger).flatMap(configuredNameLevel).getOrElse(rootLevel)
     configLevel forwards eventLevel
   }
 }

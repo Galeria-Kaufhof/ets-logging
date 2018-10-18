@@ -21,6 +21,7 @@
         <module>ets-logging-circejson</module>
         <module>ets-logging-actor</module>
         <module>ets-logging-catsio</module>
+        <module>ets-logging-slf4j</module>
 
         <module>ets-logging-usage</module>
     </modules>

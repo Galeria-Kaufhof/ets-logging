@@ -10,6 +10,7 @@ import de.kaufhof.ets.logging.test.domain._
 import de.kaufhof.ets.logging.ext.actor._
 import de.kaufhof.ets.logging.ext.catsio.CatsIoAppender
 import de.kaufhof.ets.logging.ext.circejson._
+import de.kaufhof.ets.logging.generic.LogKey
 import de.kaufhof.ets.logging.syntax._
 import io.circe.Json
 
@@ -17,7 +18,7 @@ import scala.util.Random
 
 object actor {
   object JsonKeys extends LogKeysSyntax[Json] with DefaultJsonEncoders with ActorLogKeysSyntax[Json] {
-    val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
+    val Logger: Key[String] = Key("logger").withImplicitEncoder
     val Level: Key[Level] = Key("level").withImplicitEncoder
     val Message: Key[String] = Key("msg").withImplicitEncoder
     val Timestamp: Key[Instant] = Key("ts").withExplicit(Encoder.fromToString)
@@ -27,6 +28,7 @@ object actor {
     val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
     val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
     val ActorSource: Key[ActorPath] = Key("actorSource").withImplicitEncoder
+    val Throwable: LogKey[Throwable, Json] = Key("throwable").withImplicitEncoder
   }
 
   object JsonLogConfig extends DefaultLogConfig[Json, IO[Unit]] with DefaultJsonEncoders {

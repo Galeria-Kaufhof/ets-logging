@@ -6,9 +6,12 @@ import de.kaufhof.ets.logging.syntax._
 trait DefaultLoggerFactory[E, O]
     extends LoggerFactory[E, O]
     with PredefKeysInstance[E]
-    with LogAttributeProcessor[E, O] {
-  def createLogger(cls: Class[_]): Logger = new Logger {
-    private lazy val clsAttr = predefKeys.Logger -> cls
+    with LogAttributeProcessor[E, O]
+    with ClassNameExtractor {
+  def createLogger(cls: Class[_]): Logger =
+    createLogger(getClassName(cls))
+  def createLogger(name: String): Logger = new Logger {
+    private lazy val clsAttr = predefKeys.Logger -> name
     private def generic(attributes: Seq[LogAttribute[E]]): Output = process(attributes :+ clsAttr)
     final override def event(attrs: LogAttribute[E]*): Output = generic(attrs)
     final override def trace(msg: String, attrs: LogAttribute[Encoded]*): Output =

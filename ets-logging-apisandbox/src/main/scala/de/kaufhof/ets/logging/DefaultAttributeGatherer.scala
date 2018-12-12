@@ -1,6 +1,6 @@
 package de.kaufhof.ets.logging
 
-import java.time.LocalDateTime
+import java.time.Instant
 
 import de.kaufhof.ets.logging.generic._
 import de.kaufhof.ets.logging.syntax._
@@ -10,6 +10,6 @@ trait DefaultAttributeGatherer[E]
     with LogAttributeGatherer[E]
     with PredefKeysInstance[E] {
   override def gatherGlobal: Seq[Attribute] = Seq(
-    predefKeys.Timestamp ~> LocalDateTime.now()
+    predefKeys.Timestamp ~> Instant.now()
   )
 }

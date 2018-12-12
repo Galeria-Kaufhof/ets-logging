@@ -1,6 +1,6 @@
 package de.kaufhof.ets.logging.test.encoding
 
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 import de.kaufhof.ets.logging._
@@ -14,7 +14,7 @@ object string {
     val Logger: Key[Class[_]] = Key("logger").withImplicitEncoder
     val Level: Key[Level] = Key("level").withImplicitEncoder
     val Message: Key[String] = Key("msg").withImplicitEncoder
-    val Timestamp: Key[LocalDateTime] = Key("ts").withExplicit(Encoder.fromToString)
+    val Timestamp: Key[Instant] = Key("ts").withExplicit(Encoder.fromToString)
     val VariantId: Key[VariantId] = Key("variantid").withExplicit(Encoder[VariantId].by(_.value))
     val VariantName: Key[String] = Key("variantname").withImplicitEncoder
     val SomeUUID: Key[UUID] = Key("uuid").withImplicitEncoder

@@ -1,5 +1,6 @@
 package de.kaufhof.ets.logging.syntax
 
+import java.io.{PrintWriter, StringWriter}
 import java.util.UUID
 
 import de.kaufhof.ets.logging.{ClassNameExtractor, Level}
@@ -14,6 +15,12 @@ trait DefaultEncoders[E] extends LogTypeDefinitions[E] with LogEncoderSyntax[E] 
   def createUuidEncoder: Encoder[UUID]
   def createLevelEncoder: Encoder[Level]
   def createClassEncoder: Encoder[Class[_]] = Encoder[Class[_]].by(getClassName)
+  def createThrowableEncoder: Encoder[Throwable] = Encoder[Throwable].by { throwable =>
+    val sw = new StringWriter()
+    val pw = new PrintWriter(sw)
+    throwable.printStackTrace(pw)
+    sw.toString
+  }
 
   implicit lazy val intEncoder: Encoder[Int] = createIntEncoder
   implicit lazy val longEncoder: Encoder[Long] = createLongEncoder
@@ -24,4 +31,5 @@ trait DefaultEncoders[E] extends LogTypeDefinitions[E] with LogEncoderSyntax[E] 
   implicit lazy val uuidEncoder: Encoder[UUID] = createUuidEncoder
   implicit lazy val levelEncoder: Encoder[Level] = createLevelEncoder
   implicit lazy val classEncoder: Encoder[Class[_]] = createClassEncoder
+  implicit lazy val throwableEncoder: Encoder[Throwable] = createThrowableEncoder
 }

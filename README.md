@@ -20,14 +20,14 @@ Start defining a set of Keys you wish to use within your logs events:
 import de.kaufhof.ets.logging._
 import de.kaufhof.ets.logging.syntax._
 
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.UUID
 
 object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
   val Logger:        Key[Class[_]] =      Key("logger")      .withImplicitEncoder
   val Level:         Key[Level] =         Key("level")       .withImplicitEncoder
   val Message:       Key[String] =        Key("msg")         .withImplicitEncoder
-  val Timestamp:     Key[LocalDateTime] = Key("ts")          .withExplicit(Encoder.fromToString)
+  val Timestamp:     Key[Instant] = Key("ts")          .withExplicit(Encoder.fromToString)
   val VariantId:     Key[VariantId] =     Key("variantid")   .withExplicit(Encoder[VariantId].by(_.value))
   val VariantName:   Key[String] =        Key("variantname") .withImplicitEncoder
   val SomeUUID:      Key[UUID] =          Key("uuid")        .withImplicitEncoder
@@ -80,7 +80,7 @@ object Main extends StringLogConfig.LogInstance {
   // provide additional information with an arbitrary amount of key value pairs, called attributes
   log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
   // use the generic event method to construct arbitrary log events without any predefined attributes
-  log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+  log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
   // or pass any amount of decomposable objects
   // this requires an implicit decomposer to be in scope
   // then the decomposer will decompose the available attributes for you
@@ -132,3 +132,48 @@ To cover all aspects, all required dependencies are available at once in a singl
 Aspects are covered in separate packages as single scala files.
 Physical modules that emerge are developed as objects within those files.
 Names are still very volatile.
+
+# SLF4J and ETS Logging
+
+You can decide if you want to use ETS Logging for SLF4J events or not.
+If you don't, you can use any other SLF4J implementation (like Logback, log4j,...).
+
+## Using ETS Logging for SLF4J events
+
+To log SLF4J events with ETS Logging, you have to implement an `EtsSlf4jSpiProvider` and provide it for the [ServiceLoader](https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html) interface for `org.slf4j.spi.SLF4JServiceProvider`.
+
+You have to provide your previously created configuration and use the default settings:
+
+```scala
+class Slf4jProvider extends EtsSlf4jSpiProvider[String, Unit] {
+  override def config: DefaultLogConfig[String, Unit] = StringLogConfig
+}
+```
+
+If you wish to, you can override some default settings by overriding the respective method:
+```scala
+class Slf4jProvider extends EtsSlf4jSpiProvider[String, Unit] {
+  override def config: DefaultLogConfig[String, Unit] = StringLogConfig
+
+  override def logMarker: EtsSlf4jSpiProvider.LogAttributeResolver[E] = {
+   case m: ExtendedTestMarker => StringKeys.ExtendedTestMarker -> m
+   case m: TestMarker => StringKeys.TestMarker -> m
+  }
+
+  override def levelForLogger(name: String, marker: Marker): Level = {
+    if (marker.isInstanceOf[ExtendedTestMarker] && name == "myLogger") {
+      Level.Debug
+    } else {
+      super.levelForLogger(name, marker)
+    }
+  }
+}
+```
+
+To provide your previously created SLF4J provider, you have to create a file called `org.slf4j.spi.SLF4JServiceProvider` with the fully-qualified class name of the provider as content and place it on classpath under `META-INF/services`.
+
+Consider the example from above with a package name `de.kaufhof.ets.logging.test`.
+This will result in a file at `src/main/resources/META-INF/services/org.slf4j.spi.SLF4JServiceProvider` with the content:
+```
+de.kaufhof.ets.logging.test.Slf4jProvider
+```

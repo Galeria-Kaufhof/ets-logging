@@ -1,9 +1,10 @@
 package de.kaufhof.ets.logging.test
 
-import java.time.LocalDateTime
+import java.time.Instant
 
 import cats.effect.IO
 import de.kaufhof.ets.logging.test.domain._
+import org.slf4j.LoggerFactory
 
 import scala.util.Random
 
@@ -21,7 +22,7 @@ object Main extends App {
     import encoding.string.StringLogConfig.syntax._
     log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
     // use the generic event method to construct arbitrary log events without any predefined attributes
-    log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+    log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
 
     // or pass any amount of decomposable objects
     // this requires an implicit decomposer to be in scope
@@ -30,10 +31,17 @@ object Main extends App {
     log.event(variant)
   }
 
+  object Slf4j extends encoding.slf4j.StringLogConfig.LogInstance {
+    log.debug("test123")
+    log.info("test234")
+
+    LoggerFactory.getLogger("test").info("Log with slf4j")
+  }
+
   object Test extends encoding.playjson.JsonLogConfig.LogInstance {
     import encoding.playjson.JsonLogConfig.syntax._
     import encoding.playjson.JsonLogConfig.syntax.decomposers._
-    log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+    log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
     log.event(variant)
     log.debug("test123", variant)
     log.info("test234", variant)
@@ -42,7 +50,7 @@ object Main extends App {
   object Asdf extends jsonConfig.LogInstance {
     import jsonConfig.syntax._
     import jsonConfig.syntax.decomposers._
-    log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+    log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
     log.event(variant)
     log.debug("test123", variant)
     log.info("test234", variant)
@@ -75,7 +83,7 @@ object Main extends App {
     import catsioConfig.syntax._
     import catsioConfig.syntax.decomposers._
     val x: IO[Unit] = for {
-      _ <- log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> LocalDateTime.MIN)
+      _ <- log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
       _ <- log.event(variant)
       _ <- log.debug("test123", variant)
       _ <- log.info("test234", variant)
@@ -114,6 +122,7 @@ object Main extends App {
   }
 
   README
+  Slf4j
   Test
   Asdf
   println

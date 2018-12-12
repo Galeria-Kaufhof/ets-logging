@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>ets-logging-aggregator</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <url>https://github.com/Galeria-Kaufhof/ets-logging</url>

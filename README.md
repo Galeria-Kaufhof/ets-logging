@@ -24,7 +24,7 @@ import java.time.Instant
 import java.util.UUID
 
 object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
-  val Logger:        Key[Class[_]] =      Key("logger")      .withImplicitEncoder
+  val Logger:        Key[String] =        Key("logger")      .withImplicitEncoder
   val Level:         Key[Level] =         Key("level")       .withImplicitEncoder
   val Message:       Key[String] =        Key("msg")         .withImplicitEncoder
   val Timestamp:     Key[Instant] =       Key("ts")          .withExplicit(Encoder.fromToString)
@@ -176,4 +176,35 @@ Consider the example from above with a package name `de.kaufhof.ets.logging.test
 This will result in a file at `src/main/resources/META-INF/services/org.slf4j.spi.SLF4JServiceProvider` with the content:
 ```
 de.kaufhof.ets.logging.test.Slf4jProvider
+```
+
+A complete example may look like
+```scala
+import java.time.Instant
+
+import de.kaufhof.ets.logging._
+import de.kaufhof.ets.logging.ext.slf4j.EtsSlf4jSpiProvider
+import de.kaufhof.ets.logging.syntax.LogKeysSyntax
+
+
+class Slf4jProvider extends EtsSlf4jSpiProvider[String, Unit] {
+  override def config: DefaultLogConfig[String, Unit] = LogConfig
+}
+
+object LogConfig extends DefaultLogConfig[String, Unit] with DefaultStringEncoders {
+  override type Combined = String
+  override def combiner: LogEventCombiner[String, String] = StringLogEventCombiner
+  override def appender: Appender = StdOutStringLogAppender
+  override def rootLevel: Level = Level.Info
+
+  override def predefKeys: PredefKeys = LogKeys
+}
+
+object LogKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
+  override val Logger:        Key[String] =    Key("logger")      .withImplicitEncoder
+  override val Level:         Key[Level] =     Key("level")       .withImplicitEncoder
+  override val Message:       Key[String] =    Key("msg")         .withImplicitEncoder
+  override val Timestamp:     Key[Instant] =   Key("timestamp")          .withExplicit(Encoder.fromToString)
+  override val Throwable:     Key[Throwable] = Key("throwable").withImplicitEncoder
+}
 ```

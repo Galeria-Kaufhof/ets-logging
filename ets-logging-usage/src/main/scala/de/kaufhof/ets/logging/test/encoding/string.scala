@@ -4,8 +4,8 @@ import java.time.Instant
 import java.util.UUID
 
 import de.kaufhof.ets.logging._
-import de.kaufhof.ets.logging.test.domain._
 import de.kaufhof.ets.logging.syntax._
+import de.kaufhof.ets.logging.test.domain._
 
 import scala.util.Random
 

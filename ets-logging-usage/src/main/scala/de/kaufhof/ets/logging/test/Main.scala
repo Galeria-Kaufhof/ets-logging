@@ -38,6 +38,11 @@ object Main extends App {
     LoggerFactory.getLogger("test").info("Log with slf4j")
   }
 
+  object Configurable extends encoding.configurable.TupledLogConfig.LogInstance {
+    log.debug("test-configurable")
+    log.info("test-configurable")
+  }
+
   object Test extends encoding.playjson.JsonLogConfig.LogInstance {
     import encoding.playjson.JsonLogConfig.syntax._
     import encoding.playjson.JsonLogConfig.syntax.decomposers._
@@ -123,6 +128,7 @@ object Main extends App {
 
   README
   Slf4j
+  Configurable
   Test
   Asdf
   println

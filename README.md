@@ -1,3 +1,8 @@
+A logging framework that brings compile-time safety to your log statements.
+Specify which data is encodable and how exactly the encoding should take place.
+Then the compiler prevents you from creating invalid log statements.
+
+_WARNING_
 This library is currently in the prototyping phase.
 Don't expect working code and don't even try to use it!
 
@@ -91,12 +96,35 @@ object Main extends StringLogConfig.LogInstance {
 Also take look into the short self-contained complete compliable example under:
 [test/Main.scala](ets-logging-usage/src/main/scala/de/kaufhof/ets/logging/test/Main.scala)
 
-Possible output could then look like this:
+Possible output for string encoding could then look like this:
 ```
 level -> Info | logger -> README$ | msg -> test234 | ts -> 2018-09-20T12:29:39.202
 level -> Error | logger -> README$ | msg -> test345 | ts -> 2018-09-20T12:29:39.235 | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
 logger -> README$ | ts -> -999999999-01-01T00:00 | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
 logger -> README$ | ts -> 2018-09-20T12:29:39.240 | variantid -> VariantId | variantname -> VariantName
+```
+
+
+## Configurable
+In some situations it is necessary to encode into different types depending on the runtime configuration.
+As a developer it would be convenient to see a compact string output but during local development.
+However, in production it is often required to log JSON instead of string.
+The `de.kaufhof.ets.logging.test.encoding.configurable.TupledLogConfig` show cases this at
+[test/encoding/configurable.scala](ets-logging-usage/src/main/scala/de/kaufhof/ets/logging/test/encoding/configurable.scala).
+It makes use of the `DefaultPairEncoders[String, Json]` to encode into a tuple `(String, Json)`.
+The used encoders help to make sure that attributes given to the logger do only compile if both encoders are available.
+Encoders are passed into a combiner which actually evaluates the values and applies the encoding.
+The used `TupleToEitherCombiner` allows to resort to only one of both alternatives at runtime.
+The interesting part to decide this is the `takeLeft(e: LogEvent[(String, Json)]): Boolean` method.
+Implement an appropriate expression to decide which alternative the combiner should keep.
+```scala
+override def combiner: EventCombiner = new TupleToEitherCombiner[String, Json] {
+  // setup logic to either take left or right
+  override def takeLeft(e: LogEvent[(String, Json)]): Boolean = true
+
+  override def combiner1: LogEventCombiner[String, String] = StringLogEventCombiner
+  override def combiner2: LogEventCombiner[Json, Json] = JsonLogEventCombiner
+}
 ```
 
 

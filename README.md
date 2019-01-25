@@ -117,6 +117,7 @@ Artificats available only during prototyping will disappear once the project is 
 ├── ets-logging-playjson         play.JsValue encoders
 ├── ets-logging-circejson        circe.Json encoders
 ├── ets-logging-catsio           cats.effect.IO appender
+├── ets-logging-slf4j            org.slf4j.spi.SLF4JServiceProvider implementation to gather events from sfl4j
 ├── ets-logging-logstash         !!! not available yet !!! slf4j.Marker encoders
 ├── ets-logging-mdc              !!! not available yet !!! derive decomposer from case classes
 ├── ets-logging-shapeless        !!! not available yet !!! derive decomposer from case classes
@@ -133,24 +134,23 @@ Aspects are covered in separate packages as single scala files.
 Physical modules that emerge are developed as objects within those files.
 Names are still very volatile.
 
-# SLF4J and ETS Logging
 
-You can decide if you want to use ETS Logging for SLF4J events or not.
-If you don't, you can use any other SLF4J implementation (like Logback, log4j,...).
+# `ets-logging-slf4j`
+This module helps to integrate emitted log4j log events into the `ets-logging` framework.
 
-## Using ETS Logging for SLF4J events
 
-To log SLF4J events with ETS Logging, you have to implement an `EtsSlf4jSpiProvider` and provide it for the [ServiceLoader](https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html) interface for `org.slf4j.spi.SLF4JServiceProvider`.
+Necessary steps:
+* Implement an `EtsSlf4jSpiProvider`
+* Setup [ServiceLoader](https://docs.oracle.com/javase/8/docs/api/java/util/ServiceLoader.html) SPI binding
 
-You have to provide your previously created configuration and use the default settings:
-
+The simplest setup just takes a previously created `LogConfig` instance:
 ```scala
 class Slf4jProvider extends EtsSlf4jSpiProvider[String, Unit] {
   override def config: DefaultLogConfig[String, Unit] = StringLogConfig
 }
 ```
 
-If you wish to, you can override some default settings by overriding the respective method:
+Override some default settings by overriding the respective methods:
 ```scala
 class Slf4jProvider extends EtsSlf4jSpiProvider[String, Unit] {
   override def config: DefaultLogConfig[String, Unit] = StringLogConfig
@@ -170,10 +170,16 @@ class Slf4jProvider extends EtsSlf4jSpiProvider[String, Unit] {
 }
 ```
 
-To provide your previously created SLF4J provider, you have to create a file called `org.slf4j.spi.SLF4JServiceProvider` with the fully-qualified class name of the provider as content and place it on classpath under `META-INF/services`.
+To register a valid `ServiceLoader` SPI binding create a file called `org.slf4j.spi.SLF4JServiceProvider`.
+Put the fully-qualified class name of the class' implementation into it.
+Place the file on the classpath under `META-INF/services`.
+These commands illustrate the necessary steps for a maven like project residing in a directory called `<project>`.
+```
+mkdir -p <project>/src/main/resources/META-INF/services/
+cd <project>/src/main/resources/META-INF/services/
+echo "de.kaufhof.ets.logging.test.Slf4jProvider" > org.slf4j.spi.SLF4JServiceProvider
+```
 
-Consider the example from above with a package name `de.kaufhof.ets.logging.test`.
-This will result in a file at `src/main/resources/META-INF/services/org.slf4j.spi.SLF4JServiceProvider` with the content:
-```
-de.kaufhof.ets.logging.test.Slf4jProvider
-```
+There is a runnable version of this example at
+[test/encoding/slf4j.scala](ets-logging-usage/src/main/scala/de/kaufhof/ets/logging/test/encoding/slf4j.scala).
+Take `de.kaufhof.ets.logging.test.Main.Slf4j` as a reference to how it is being used.

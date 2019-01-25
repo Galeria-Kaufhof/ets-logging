@@ -21,6 +21,7 @@ object string {
     val RandomEncoder: Key[Random] = Key("randenc").withExplicit(Encoder[Random].by(_.nextInt(100)))
     val RandomEval: Key[Int] = Key("randeval").withImplicitEncoder
     val Throwable: Key[Throwable] = Key("throwable").withImplicitEncoder
+    val Epic: Key[Epic] = Key("epic").withExplicit(Encoder[Epic].by(_.productPrefix))
   }
 
   object StringLogConfig extends DefaultLogConfig[String, Unit] with DefaultStringEncoders {
@@ -41,6 +42,8 @@ object string {
           Keys.VariantId ~> variant.id,
           Keys.VariantName ~> variant.name
       )
+      implicit lazy val epicDecomposer: Decomposer[Epic] = epic => Decomposed(Keys.Epic ~> epic)
+      implicit def anyEpic2epicDecomposer[E <: Epic]: Decomposer[E] = Decomposer[Epic].forSubType
     }
   }
 }

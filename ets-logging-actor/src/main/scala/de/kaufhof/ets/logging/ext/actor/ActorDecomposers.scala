@@ -5,6 +5,5 @@ import de.kaufhof.ets.logging.syntax.{Decomposer2DecomposedImplicits, LogKeySynt
 
 trait ActorDecomposers[E] extends Decomposer2DecomposedImplicits[E] with LogKeySyntax[E] {
   implicit val actorDecomposer: Decomposer[Actor]
-  implicit def anyActor2Decomposer[A <: Actor]: Decomposer[A] =
-    actor => Decomposed(actorDecomposer.encode(actor).primitives: _*)
+  implicit def anyActor2Decomposer[A <: Actor]: Decomposer[A] = Decomposer[Actor].forSubType
 }

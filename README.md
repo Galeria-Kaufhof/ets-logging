@@ -15,6 +15,11 @@ libraryDependencies += "de.kaufhof.ets" %% "ets-logging-core" % "0.1.0-SNAPSHOT"
 
 Given some domain objects:
 ```scala
+sealed trait Epic extends Product
+object Epic {
+  case object FeatureA extends Epic
+  case object FeatureB extends Epic
+}
 case class VariantId(value: String)
 case class Variant(id: VariantId, name: String)
 case class TestClass(a: Int, b: String)
@@ -38,6 +43,7 @@ object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
   val SomeUUID:      Key[UUID] =          Key("uuid")        .withImplicitEncoder
   val RandomEncoder: Key[Random] =        Key("randenc")     .withExplicit(Encoder[Random].by(_.nextInt(100)))
   val RandomEval:    Key[Int] =           Key("randeval")    .withImplicitEncoder
+  val Epic:          Key[Epic] =          Key("epic")        .withExplicit(Encoder[Epic].by(_.productPrefix))
 }
 ```
 
@@ -86,22 +92,34 @@ object Main extends StringLogConfig.LogInstance {
   log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
   // use the generic event method to construct arbitrary log events without any predefined attributes
   log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
+  // inputs to encoders are contravariant and therefore directly accept instances of the key's subtypes
+  log.info("""yay \o/""", Keys.Epic -> Epic.FeatureA)
   // or pass any amount of decomposable objects
   // this requires an implicit decomposer to be in scope
   // then the decomposer will decompose the available attributes for you
+  import encoding.string.StringLogConfig.syntax.decomposers._
   log.event(variant)
+  // inputs to encoders are contravariant however decomposers are not contravariant right now
+  // when objects with sub type relationship need to be decomposed it is recommended to add
+  // a specific sub type decomposer for that
+  log.info("""yay \o/""",  Epic.FeatureA)
 }
 ```
 
 Also take look into the short self-contained complete compliable example under:
 [test/Main.scala](ets-logging-usage/src/main/scala/de/kaufhof/ets/logging/test/Main.scala)
 
-Possible output for string encoding could then look like this:
+Possible output for string encoding as shown above could then look like this:
 ```
-level -> Info | logger -> README$ | msg -> test234 | ts -> 2018-09-20T12:29:39.202
-level -> Error | logger -> README$ | msg -> test345 | ts -> 2018-09-20T12:29:39.235 | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
-logger -> README$ | ts -> -999999999-01-01T00:00 | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
-logger -> README$ | ts -> 2018-09-20T12:29:39.240 | variantid -> VariantId | variantname -> VariantName
+level -> Info | logger -> de.kaufhof.ets.logging.test.Main$README$ | msg -> test234 | ts -> 2019-01-25T19:39:52.594Z
+level -> Error | logger -> de.kaufhof.ets.logging.test.Main$README$ | msg -> test345 | ts -> 2019-01-25T19:39:52.629Z | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
+logger -> de.kaufhof.ets.logging.test.Main$README$ | ts -> -1000000000-01-01T00:00:00Z | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
+epic -> FeatureA | level -> Info | logger -> de.kaufhof.ets.logging.test.Main$README$ | msg -> yay \o/ | ts -> 2019-01-25T19:39:52.636Z
+logger -> de.kaufhof.ets.logging.test.Main$README$ | ts -> 2019-01-25T19:39:52.643Z | variantid -> VariantId | variantname -> VariantName
+epic -> FeatureA | level -> Info | logger -> de.kaufhof.ets.logging.test.Main$README$ | msg -> yay \o/ | ts -> 2019-01-25T19:39:52.650Z
+level -> Info | logger -> de.kaufhof.ets.logging.test.Main$Slf4j$ | msg -> test234 | ts -> 2019-01-25T19:39:52.707Z
+level -> Info | logger -> test | msg -> Log with slf4j | ts -> 2019-01-25T19:39:52.723Z
+level -> Info | logger -> de.kaufhof.ets.logging.test.Main$Configurable$ | message -> test-configurable | timestamp -> 2019-01-25T19:39:52.924Z
 ```
 
 

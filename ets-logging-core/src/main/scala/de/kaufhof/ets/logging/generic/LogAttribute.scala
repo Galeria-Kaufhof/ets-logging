@@ -9,7 +9,7 @@ sealed trait LogPrimitive[I, Encoded] extends LogAttribute[Encoded] {
   def encoded: Encoded
   protected def encode: Encoded = key.encoder.encode(evaluated)
   def withNewKey[A](newKey: LogKey[I, A]): LogPrimitive[I, A]
-  def mapEncoded[A](f: Encoded => A): LogPrimitive[I, A] = withNewKey(key.mapEncoded(_.mapEncoded(f)))
+  def mapEncoded[A](f: Encoded => A): LogPrimitive[I, A] = withNewKey(key.mapEncoded(_.map(f)))
 }
 case class LazyPrimitive[I, Encoded](key: LogKey[I, Encoded], value: Lazy[I]) extends LogPrimitive[I, Encoded] {
   override lazy val evaluated: I = value.apply()
@@ -21,4 +21,4 @@ case class EagerPrimitive[I, Encoded](key: LogKey[I, Encoded], value: I) extends
   override val encoded: Encoded = encode
   override def withNewKey[A](newKey: LogKey[I, A]): LogPrimitive[I, A] = EagerPrimitive(newKey, value)
 }
-case class LogDecomposed[I, Encoded](primitives: LogPrimitive[_, Encoded]*) extends LogAttribute[Encoded]
+case class LogDecomposed[Encoded](primitives: LogPrimitive[_, Encoded]*) extends LogAttribute[Encoded]

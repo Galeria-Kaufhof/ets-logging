@@ -2,7 +2,6 @@ package de.kaufhof.ets.logging
 
 import java.util.UUID
 
-import de.kaufhof.ets.logging.generic.LogEncoder
 import de.kaufhof.ets.logging.syntax.DefaultEncoders
 
 trait DefaultStringEncoders extends DefaultEncoders[String] {
@@ -16,5 +15,3 @@ trait DefaultStringEncoders extends DefaultEncoders[String] {
   override def createUuidEncoder: Encoder[UUID] = Encoder.fromToString
   override def createLevelEncoder: Encoder[Level] = Encoder.fromToString
 }
-
-

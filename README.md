@@ -71,6 +71,7 @@ object StringLogConfig extends DefaultLogConfig[String, Unit] with DefaultString
         Keys.VariantId ~> variant.id,
         Keys.VariantName ~> variant.name
     )
+    implicit lazy val epicDecomposer: Decomposer[Epic] = epic => Decomposed(Keys.Epic ~> epic)
   }
 
   val syntax = ConfigSyntax(StringKeys, Decomposers)
@@ -92,16 +93,14 @@ object Main extends StringLogConfig.LogInstance {
   log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
   // use the generic event method to construct arbitrary log events without any predefined attributes
   log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
-  // inputs to encoders are contravariant and therefore directly accept instances of the key's subtypes
+  // inputs to encoders are contravariant and therefore directly accept instances of the key-types's subtypes
   log.info("""yay \o/""", Keys.Epic -> Epic.FeatureA)
   // or pass any amount of decomposable objects
   // this requires an implicit decomposer to be in scope
   // then the decomposer will decompose the available attributes for you
   import encoding.string.StringLogConfig.syntax.decomposers._
   log.event(variant)
-  // inputs to encoders are contravariant however decomposers are not contravariant right now
-  // when objects with sub type relationship need to be decomposed it is recommended to add
-  // a specific sub type decomposer for that
+  // inputs to decomposers are contravariant as well and therefore accept instances of the input-types's subtypes
   log.info("""yay \o/""",  Epic.FeatureA)
 }
 ```

@@ -9,7 +9,7 @@ trait LogEventOps[E] extends LogTypeDefinitions[E] {
     attributes.foldLeft(Seq.empty: Prims) { (acc, attr) =>
       attr match {
         case p: Primitive[_] => acc :+ p
-        case c: Composite[_] => acc ++ c.primitives
+        case c: Composite => acc ++ c.primitives
       }
     }
 }

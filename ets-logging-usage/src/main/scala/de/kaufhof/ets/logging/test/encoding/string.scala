@@ -43,7 +43,6 @@ object string {
           Keys.VariantName ~> variant.name
       )
       implicit lazy val epicDecomposer: Decomposer[Epic] = epic => Decomposed(Keys.Epic ~> epic)
-      implicit def anyEpic2epicDecomposer[E <: Epic]: Decomposer[E] = Decomposer[Epic].forSubType
     }
   }
 }

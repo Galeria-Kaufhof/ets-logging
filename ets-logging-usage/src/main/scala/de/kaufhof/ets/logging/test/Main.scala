@@ -23,12 +23,16 @@ object Main extends App {
     log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
     // use the generic event method to construct arbitrary log events without any predefined attributes
     log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
+    // inputs to encoders are contravariant and therefore directly accept instances of the key-types's subtypes
+    log.info("""yay \o/""", Keys.Epic -> Epic.FeatureA)
 
     // or pass any amount of decomposable objects
     // this requires an implicit decomposer to be in scope
     // then the decomposer will decompose the available attributes for you
     import encoding.string.StringLogConfig.syntax.decomposers._
     log.event(variant)
+    // inputs to decomposers are contravariant as well and therefore accept instances of the input-types's subtypes
+    log.info("""yay \o/""",  Epic.FeatureA)
   }
 
   object Slf4j extends encoding.slf4j.StringLogConfig.LogInstance {
@@ -36,6 +40,11 @@ object Main extends App {
     log.info("test234")
 
     LoggerFactory.getLogger("test").info("Log with slf4j")
+  }
+
+  object Configurable extends encoding.configurable.TupledLogConfig.LogInstance {
+    log.debug("test-configurable")
+    log.info("test-configurable")
   }
 
   object Test extends encoding.playjson.JsonLogConfig.LogInstance {
@@ -123,6 +132,7 @@ object Main extends App {
 
   README
   Slf4j
+  Configurable
   Test
   Asdf
   println

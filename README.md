@@ -1,3 +1,8 @@
+A logging framework that brings compile-time safety to your log statements.
+Specify which data is encodable and how exactly the encoding should take place.
+Then the compiler prevents you from creating invalid log statements.
+
+_WARNING_
 This library is currently in the prototyping phase.
 Don't expect working code and don't even try to use it!
 
@@ -10,6 +15,11 @@ libraryDependencies += "de.kaufhof.ets" %% "ets-logging-core" % "0.1.0-SNAPSHOT"
 
 Given some domain objects:
 ```scala
+sealed trait Epic extends Product
+object Epic {
+  case object FeatureA extends Epic
+  case object FeatureB extends Epic
+}
 case class VariantId(value: String)
 case class Variant(id: VariantId, name: String)
 case class TestClass(a: Int, b: String)
@@ -33,6 +43,7 @@ object StringKeys extends LogKeysSyntax[String] with DefaultStringEncoders {
   val SomeUUID:      Key[UUID] =          Key("uuid")        .withImplicitEncoder
   val RandomEncoder: Key[Random] =        Key("randenc")     .withExplicit(Encoder[Random].by(_.nextInt(100)))
   val RandomEval:    Key[Int] =           Key("randeval")    .withImplicitEncoder
+  val Epic:          Key[Epic] =          Key("epic")        .withExplicit(Encoder[Epic].by(_.productPrefix))
 }
 ```
 
@@ -60,6 +71,7 @@ object StringLogConfig extends DefaultLogConfig[String, Unit] with DefaultString
         Keys.VariantId ~> variant.id,
         Keys.VariantName ~> variant.name
     )
+    implicit lazy val epicDecomposer: Decomposer[Epic] = epic => Decomposed(Keys.Epic ~> epic)
   }
 
   val syntax = ConfigSyntax(StringKeys, Decomposers)
@@ -81,22 +93,55 @@ object Main extends StringLogConfig.LogInstance {
   log.error("test345", Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid)
   // use the generic event method to construct arbitrary log events without any predefined attributes
   log.event(Keys.VariantId ~> variant.id, Keys.SomeUUID -> uuid, Keys.Timestamp ~> Instant.MIN)
+  // inputs to encoders are contravariant and therefore directly accept instances of the key-types's subtypes
+  log.info("""yay \o/""", Keys.Epic -> Epic.FeatureA)
   // or pass any amount of decomposable objects
   // this requires an implicit decomposer to be in scope
   // then the decomposer will decompose the available attributes for you
+  import encoding.string.StringLogConfig.syntax.decomposers._
   log.event(variant)
+  // inputs to decomposers are contravariant as well and therefore accept instances of the input-types's subtypes
+  log.info("""yay \o/""",  Epic.FeatureA)
 }
 ```
 
 Also take look into the short self-contained complete compliable example under:
 [test/Main.scala](ets-logging-usage/src/main/scala/de/kaufhof/ets/logging/test/Main.scala)
 
-Possible output could then look like this:
+Possible output for string encoding as shown above could then look like this:
 ```
-level -> Info | logger -> README$ | msg -> test234 | ts -> 2018-09-20T12:29:39.202
-level -> Error | logger -> README$ | msg -> test345 | ts -> 2018-09-20T12:29:39.235 | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
-logger -> README$ | ts -> -999999999-01-01T00:00 | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
-logger -> README$ | ts -> 2018-09-20T12:29:39.240 | variantid -> VariantId | variantname -> VariantName
+level -> Info | logger -> de.kaufhof.ets.logging.test.Main$README$ | msg -> test234 | ts -> 2019-01-25T19:39:52.594Z
+level -> Error | logger -> de.kaufhof.ets.logging.test.Main$README$ | msg -> test345 | ts -> 2019-01-25T19:39:52.629Z | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
+logger -> de.kaufhof.ets.logging.test.Main$README$ | ts -> -1000000000-01-01T00:00:00Z | uuid -> 723f03f5-13a6-4e46-bdac-3c66718629df | variantid -> VariantId
+epic -> FeatureA | level -> Info | logger -> de.kaufhof.ets.logging.test.Main$README$ | msg -> yay \o/ | ts -> 2019-01-25T19:39:52.636Z
+logger -> de.kaufhof.ets.logging.test.Main$README$ | ts -> 2019-01-25T19:39:52.643Z | variantid -> VariantId | variantname -> VariantName
+epic -> FeatureA | level -> Info | logger -> de.kaufhof.ets.logging.test.Main$README$ | msg -> yay \o/ | ts -> 2019-01-25T19:39:52.650Z
+level -> Info | logger -> de.kaufhof.ets.logging.test.Main$Slf4j$ | msg -> test234 | ts -> 2019-01-25T19:39:52.707Z
+level -> Info | logger -> test | msg -> Log with slf4j | ts -> 2019-01-25T19:39:52.723Z
+level -> Info | logger -> de.kaufhof.ets.logging.test.Main$Configurable$ | message -> test-configurable | timestamp -> 2019-01-25T19:39:52.924Z
+```
+
+
+## Configurable
+In some situations it is necessary to encode into different types depending on the runtime configuration.
+As a developer it would be convenient to see a compact string output but during local development.
+However, in production it is often required to log JSON instead of string.
+The `de.kaufhof.ets.logging.test.encoding.configurable.TupledLogConfig` show cases this at
+[test/encoding/configurable.scala](ets-logging-usage/src/main/scala/de/kaufhof/ets/logging/test/encoding/configurable.scala).
+It makes use of the `DefaultPairEncoders[String, Json]` to encode into a tuple `(String, Json)`.
+The used encoders help to make sure that attributes given to the logger do only compile if both encoders are available.
+Encoders are passed into a combiner which actually evaluates the values and applies the encoding.
+The used `TupleToEitherCombiner` allows to resort to only one of both alternatives at runtime.
+The interesting part to decide this is the `takeLeft(e: LogEvent[(String, Json)]): Boolean` method.
+Implement an appropriate expression to decide which alternative the combiner should keep.
+```scala
+override def combiner: EventCombiner = new TupleToEitherCombiner[String, Json] {
+  // setup logic to either take left or right
+  override def takeLeft(e: LogEvent[(String, Json)]): Boolean = true
+
+  override def combiner1: LogEventCombiner[String, String] = StringLogEventCombiner
+  override def combiner2: LogEventCombiner[Json, Json] = JsonLogEventCombiner
+}
 ```
 
 

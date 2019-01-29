@@ -10,7 +10,4 @@ trait LogKeySyntax[E] extends LogTypeDefinitions[E] {
     def withExplicit[I](encoder: Encoder[I]): Key[I] = generic.LogKey(id, encoder)
     def withImplicitEncoder[I](implicit encoder: Encoder[I]): Key[I] = generic.LogKey(id, encoder)
   }
-  object Decomposed {
-    def apply[I](primitives: Primitive[_]*): Decomposed[I] = generic.LogDecomposed(primitives: _*)
-  }
 }

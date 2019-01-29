@@ -25,12 +25,8 @@ object slf4j {
     val Message: Key[String] = Key("msg").withImplicitEncoder
     val Timestamp: Key[Instant] = Key("ts").withExplicit(Encoder.fromToString)
     val Throwable: Key[Throwable] = Key("throwable").withImplicitEncoder
-    val TestMarker: Key[TestMarker] = Key("testmarker").withExplicit(new Encoder[TestMarker] {
-      override def encode(value: TestMarker): Encoded = value.value
-    })
-    val TestMarker2: Key[TestMarker2] = Key("testmarker").withExplicit(new Encoder[TestMarker2] {
-      override def encode(value: TestMarker2): Encoded = value.value
-    })
+    val TestMarker: Key[TestMarker] = Key("testmarker").withExplicit((value: TestMarker) => value.value)
+    val TestMarker2: Key[TestMarker2] = Key("testmarker").withExplicit((value: TestMarker2) => value.value)
   }
 
   object StringLogConfig extends DefaultLogConfig[String, Unit] with DefaultStringEncoders {
@@ -42,24 +38,16 @@ object slf4j {
     )
 
     override def predefKeys: PredefKeys = StringKeys
-
   }
 
   class TestMarker(val value: String) extends Marker {
     override def getName: String = "test-marker"
-
     override def add(reference: Marker): Unit = ()
-
     override def remove(reference: Marker): Boolean = false
-
     override def hasChildren: Boolean = false
-
     override def hasReferences: Boolean = false
-
     override def iterator(): util.Iterator[Marker] = new util.ArrayList[Marker]().iterator()
-
     override def contains(other: Marker): Boolean = false
-
     override def contains(name: String): Boolean = false
   }
 
